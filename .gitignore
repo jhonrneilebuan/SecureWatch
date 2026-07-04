@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/dist/
+**/verify-build/
+**/node_modules/
+**/__pycache__/
+*.pyc
+.env
+.venv/
+*.user

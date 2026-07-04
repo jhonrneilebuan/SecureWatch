@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: securewatch-postgres
+    environment:
+      POSTGRES_DB: securewatch
+      POSTGRES_USER: securewatch
+      POSTGRES_PASSWORD: securewatch_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U securewatch -d securewatch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  security-engine:
+    build:
+      context: ./security-engine
+    container_name: securewatch-security-engine
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8000:8000"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: securewatch-api
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=securewatch;Username=securewatch;Password=securewatch_password
+      Jwt__Issuer: SecureWatch
+      Jwt__Audience: SecureWatchUsers
+      Jwt__Key: ChangeThisDevelopmentSecretKeyForSecureWatchJwtTokens123!
+      SecurityEngine__BaseUrl: http://security-engine:8000
+      AbuseIPDB__ApiKey: ${ABUSEIPDB_API_KEY:-}
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      OpenAI__Model: ${OPENAI_MODEL:-gpt-4o-mini}
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-alerts@securewatch.local}
+      Smtp__To: ${SMTP_TO:-}
+    ports:
+      - "5000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      security-engine:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: securewatch-frontend
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:

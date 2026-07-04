@@ -1,0 +1,12 @@
+Jul 04 08:00:01 securewatch sshd[1001]: Failed login from 192.168.1.10 for user admin
+Jul 04 08:00:02 securewatch sshd[1002]: Failed login from 192.168.1.10 for user admin
+Jul 04 08:00:03 securewatch sshd[1003]: Failed login from 192.168.1.10 for user admin
+Jul 04 08:00:04 securewatch sshd[1004]: Failed login from 192.168.1.10 for user admin
+Jul 04 08:00:05 securewatch sshd[1005]: Failed login from 192.168.1.10 for user admin
+Jul 04 08:00:06 securewatch sshd[1006]: Failed login from 192.168.1.10 for user admin
+Jul 04 08:00:07 securewatch sshd[1007]: Failed login from 192.168.1.10 for user admin
+Jul 04 08:01:00 securewatch sshd[1100]: Successful login from 10.0.0.15 for user analyst
+Jul 04 08:02:00 securewatch nginx: 203.0.113.20 GET /admin 401
+Jul 04 08:02:02 securewatch nginx: 203.0.113.20 GET /admin 401
+Jul 04 08:02:04 securewatch nginx: 203.0.113.20 GET /api/auth 401
+Jul 04 08:02:06 securewatch nginx: 203.0.113.20 GET /settings 403
