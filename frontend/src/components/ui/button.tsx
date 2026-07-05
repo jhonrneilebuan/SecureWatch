@@ -7,10 +7,10 @@ export function Button({ className, variant = 'primary', ...props }: ButtonHTMLA
   return (
     <button
       className={clsx(
-        'inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
-        variant === 'primary' && 'bg-primary text-slate-950 hover:bg-emerald-300',
-        variant === 'ghost' && 'border border-slate-700 bg-slate-900/40 text-slate-200 hover:bg-slate-800',
-        variant === 'danger' && 'bg-danger text-white hover:bg-red-500',
+        'inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+        variant === 'primary' && 'bg-gradient-to-r from-primary to-emerald-500 text-slate-950 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 hover:from-emerald-400 hover:to-teal-400',
+        variant === 'ghost' && 'border border-slate-800 bg-slate-900/30 text-slate-300 hover:bg-slate-900 hover:text-white hover:border-slate-700',
+        variant === 'danger' && 'bg-gradient-to-r from-danger to-red-600 text-white shadow-md shadow-danger/10 hover:shadow-lg hover:shadow-danger/20 hover:from-red-500 hover:to-rose-500',
         className,
       )}
       {...props}

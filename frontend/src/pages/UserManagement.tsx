@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { clsx } from 'clsx';
 
 interface UserRow {
   id: string;
@@ -71,56 +73,103 @@ export function UserManagement() {
 
   return (
     <div className="space-y-4">
-    <Card>
-      <h2 className="mb-4 text-xl font-semibold">User Management</h2>
-      <form className="mb-5 grid gap-3 md:grid-cols-5" onSubmit={createUser}>
-        <input name="fullName" placeholder="Full name" className="h-10 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm" required />
-        <input name="email" type="email" placeholder="Email" className="h-10 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm" required />
-        <input name="password" type="password" placeholder="Password" className="h-10 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm" required />
-        <select name="role" className="h-10 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm"><option value="Analyst">Analyst</option><option value="Admin">Admin</option></select>
-        <Button disabled={loading}>{loading ? 'Creating...' : 'Create'}</Button>
-      </form>
-      <p className="mb-4 text-xs text-slate-500">Password policy: 8+ characters with uppercase, lowercase, number, and special character.</p>
-      {error && <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="text-slate-500">
-            <tr>
-              <th className="py-3">Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="border-t border-slate-800">
-                <td className="py-3">{user.fullName}</td>
-                <td>{user.email}</td>
-                <td>
-                  <select
-                    value={user.role}
-                    onChange={(event) => updateRole(user, event.target.value)}
-                    className="h-9 rounded-md border border-slate-700 bg-slate-950 px-2 text-sm"
-                  >
-                    <option value="Analyst">Analyst</option>
-                    <option value="Admin">Admin</option>
-                  </select>
-                </td>
-                <td>{user.isActive ? 'Active' : 'Disabled'}</td>
-                <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                <td className="flex gap-2">
-                  <Button variant="ghost" onClick={() => toggle(user)}>{user.isActive ? 'Disable' : 'Enable'}</Button>
-                  <Button variant="ghost" onClick={() => deleteUser(user)}>Delete</Button>
-                </td>
+      <Card>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold">User Console Management</h2>
+          <p className="text-xs text-slate-500">Add or manage security analysts and administrators who have console access.</p>
+        </div>
+        <form className="mb-5 grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5" onSubmit={createUser}>
+          <Input
+            name="fullName"
+            placeholder="Full name"
+            required
+          />
+          <Input
+            name="email"
+            type="email"
+            placeholder="Email"
+            required
+          />
+          <Input
+            name="password"
+            type="password"
+            placeholder="Password"
+            required
+          />
+          <div className="relative">
+            <select
+              name="role"
+              className="h-10 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 text-sm text-slate-100 focus:border-primary/80 focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 shadow-inner appearance-none animate-in fade-in"
+            >
+              <option value="Analyst" className="bg-slate-950">Analyst</option>
+              <option value="Admin" className="bg-slate-950">Admin</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+            </div>
+          </div>
+          <Button disabled={loading} className="h-10">
+            {loading ? 'Creating...' : 'Create Account'}
+          </Button>
+        </form>
+        <p className="mb-4 text-[10px] text-slate-500 font-medium">Password policy: 8+ characters with uppercase, lowercase, number, and special character.</p>
+        {error && <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300 animate-pulse">{error}</div>}
+        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/20">
+          <table className="w-full text-left text-sm">
+            <thead className="text-slate-500 uppercase text-[10px] tracking-wider bg-slate-950/40 border-b border-slate-800/80">
+              <tr>
+                <th className="py-3.5 px-4">Name</th>
+                <th className="px-4">Email</th>
+                <th className="px-4">Role</th>
+                <th className="hidden sm:table-cell px-4">Status</th>
+                <th className="hidden md:table-cell px-4">Created</th>
+                <th className="px-4 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {users.map((user) => (
+                <tr key={user.id} className="hover:bg-slate-900/10 transition-all duration-150">
+                  <td className="py-3 px-4 font-semibold text-slate-200">{user.fullName}</td>
+                  <td className="px-4 text-slate-400 text-xs sm:text-sm">{user.email}</td>
+                  <td className="px-4">
+                    <div className="relative inline-block">
+                      <select
+                        value={user.role}
+                        onChange={(event) => updateRole(user, event.target.value)}
+                        className="h-8 rounded-lg border border-slate-800 bg-slate-950 px-2 text-xs text-slate-200 focus:border-primary/80 focus:ring-1 focus:ring-primary/20 outline-none transition-all duration-150"
+                      >
+                        <option value="Analyst" className="bg-slate-950">Analyst</option>
+                        <option value="Admin" className="bg-slate-950">Admin</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td className="hidden sm:table-cell px-4">
+                    <span className={clsx(
+                      "text-[10px] font-bold px-2 py-0.5 rounded",
+                      user.isActive ? "bg-emerald-950/50 text-emerald-400 border border-emerald-900/50" : "bg-red-950/50 text-red-400 border border-red-900/50"
+                    )}>
+                      {user.isActive ? 'Active' : 'Disabled'}
+                    </span>
+                  </td>
+                  <td className="hidden md:table-cell px-4 text-xs text-slate-500 font-medium">
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex gap-1.5 justify-end">
+                      <Button variant="ghost" onClick={() => toggle(user)} className="h-8 px-2 text-[11px] font-semibold">
+                        {user.isActive ? 'Disable' : 'Enable'}
+                      </Button>
+                      <Button variant="ghost" onClick={() => deleteUser(user)} className="h-8 px-2 text-[11px] font-semibold hover:bg-red-900/20 hover:text-red-400 hover:border-danger/30">
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }

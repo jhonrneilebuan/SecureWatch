@@ -51,13 +51,23 @@ public sealed class AuthService(
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, string ipAddress, CancellationToken cancellationToken)
     {
-        var user = await users.GetByEmailAsync(request.Email.Trim().ToLowerInvariant(), cancellationToken);
-        var passwordValid = user is not null && passwordHasher.Verify(request.Password, user.PasswordHash);
-        var locked = user?.LockedUntil is not null && user.LockedUntil > DateTimeOffset.UtcNow;
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await users.GetByEmailAsync(normalizedEmail, cancellationToken);
 
-        if (user is null || !user.IsActive || locked || !passwordValid)
+        // If the account is currently locked, return immediately without recording
+        // another failed attempt — otherwise every try would reset the 15-min timer.
+        var locked = user?.LockedUntil is not null && user.LockedUntil > DateTimeOffset.UtcNow;
+        if (locked)
         {
-            await RecordFailedLoginAsync(request.Email.Trim().ToLowerInvariant(), ipAddress, user, cancellationToken);
+            var remaining = (int)Math.Ceiling((user!.LockedUntil!.Value - DateTimeOffset.UtcNow).TotalMinutes);
+            throw new UnauthorizedAccessException($"Account is temporarily locked. Try again in {remaining} minute(s).");
+        }
+
+        var passwordValid = user is not null && user.IsActive && passwordHasher.Verify(request.Password, user.PasswordHash);
+
+        if (user is null || !user.IsActive || !passwordValid)
+        {
+            await RecordFailedLoginAsync(normalizedEmail, ipAddress, user, cancellationToken);
             throw new UnauthorizedAccessException("Invalid email or password.");
         }
 
@@ -139,8 +149,10 @@ public sealed class AuthService(
         }
 
         var since = DateTimeOffset.UtcNow.AddMinutes(-15);
-        var recentFailures = await dbContext.LoginAttempts
-            .CountAsync(x => x.Email == email && x.IpAddress == ipAddress && !x.Succeeded && x.AttemptedAt >= since, cancellationToken) + 1;
+        // Use the user's own FailedLoginCount (already incremented above) as the
+        // authoritative counter — it gets reset on successful login AND on manual admin unlock,
+        // so it cannot cause instant re-lockout after a DB reset.
+        var recentFailures = user?.FailedLoginCount ?? LockoutThreshold;
 
         if (recentFailures >= LockoutThreshold)
         {
