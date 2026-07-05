@@ -85,6 +85,8 @@ Services:
 
 Do not expose these keys in the frontend.
 
+Create or edit `.env` in the project root:
+
 ```text
 ABUSEIPDB_API_KEY=
 OPENAI_API_KEY=
@@ -121,6 +123,21 @@ SecureWatch@123
 7. Open CVE Lookup and search a product keyword.
 8. Open Reports and export the PDF summary.
 9. Open Audit Logs and confirm activity was tracked.
+
+## SMTP Alert Test
+
+Set SMTP values in `.env`, restart the backend, then upload `sample-auth.log`. The sample creates a High brute-force threat, which sends an email alert to `SMTP_TO`.
+
+For Gmail, use an App Password instead of your normal account password:
+
+```text
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your_email@gmail.com
+SMTP_PASSWORD=your_gmail_app_password
+SMTP_FROM=your_email@gmail.com
+SMTP_TO=recipient_email@gmail.com
+```
 
 ## API Endpoints
 

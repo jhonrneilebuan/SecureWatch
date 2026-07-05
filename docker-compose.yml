@@ -3,16 +3,16 @@ services:
     image: postgres:16-alpine
     container_name: securewatch-postgres
     environment:
-      POSTGRES_DB: securewatch
-      POSTGRES_USER: securewatch
-      POSTGRES_PASSWORD: securewatch_password
+      POSTGRES_DB: ${POSTGRES_DB:-securewatch}
+      POSTGRES_USER: ${POSTGRES_USER:-securewatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securewatch_password}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U securewatch -d securewatch"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,12 +32,13 @@ services:
     container_name: securewatch-api
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=securewatch;Username=securewatch;Password=securewatch_password
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-securewatch};Username=${POSTGRES_USER:-securewatch};Password=${POSTGRES_PASSWORD:-securewatch_password}
       Jwt__Issuer: SecureWatch
       Jwt__Audience: SecureWatchUsers
       Jwt__Key: ChangeThisDevelopmentSecretKeyForSecureWatchJwtTokens123!
       SecurityEngine__BaseUrl: http://security-engine:8000
       AbuseIPDB__ApiKey: ${ABUSEIPDB_API_KEY:-}
+      Nvd__ApiKey: ${NVD_API_KEY:-}
       OpenAI__ApiKey: ${OPENAI_API_KEY:-}
       OpenAI__Model: ${OPENAI_MODEL:-gpt-4o-mini}
       Smtp__Host: ${SMTP_HOST:-}

@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Net;
+using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -67,12 +69,17 @@ public sealed class IpReputationService(AppDbContext dbContext, IHttpClientFacto
     }
 }
 
-public sealed class CveLookupService(AppDbContext dbContext, IHttpClientFactory httpClientFactory) : ICveLookupService
+public sealed class CveLookupService(AppDbContext dbContext, IHttpClientFactory httpClientFactory, IConfiguration configuration) : ICveLookupService
 {
     public async Task<IReadOnlyCollection<CveRecordDto>> SearchAsync(string query, CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient();
         var url = $"https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch={Uri.EscapeDataString(query)}";
+        var apiKey = configuration["Nvd:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            url += $"&apiKey={Uri.EscapeDataString(apiKey)}";
+        }
         using var response = await client.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
@@ -147,16 +154,79 @@ public sealed class AiRecommendationService(IHttpClientFactory httpClientFactory
 
 public sealed class EmailAlertService(IConfiguration configuration, ILogger<EmailAlertService> logger) : IEmailAlertService
 {
-    public Task SendThreatAlertAsync(Threat threat, Incident? incident, CancellationToken cancellationToken)
+    public async Task SendThreatAlertAsync(Threat threat, Incident? incident, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(configuration["Smtp:Host"]))
+        var host = configuration["Smtp:Host"];
+        var username = configuration["Smtp:Username"];
+        var password = configuration["Smtp:Password"];
+        var from = configuration["Smtp:From"];
+        var to = configuration["Smtp:To"];
+        var port = int.TryParse(configuration["Smtp:Port"], out var configuredPort) ? configuredPort : 587;
+
+        if (string.IsNullOrWhiteSpace(host) ||
+            string.IsNullOrWhiteSpace(username) ||
+            string.IsNullOrWhiteSpace(password) ||
+            string.IsNullOrWhiteSpace(from) ||
+            string.IsNullOrWhiteSpace(to))
         {
-            logger.LogInformation("SMTP is not configured. Skipping alert for threat {ThreatId}", threat.Id);
-            return Task.CompletedTask;
+            logger.LogInformation("SMTP is not fully configured. Skipping alert for threat {ThreatId}", threat.Id);
+            return;
         }
 
-        logger.LogInformation("SMTP settings detected. Email alert would be sent for {ThreatType} {Severity}", threat.ThreatType, threat.Severity);
-        return Task.CompletedTask;
+        using var message = new MailMessage
+        {
+            From = new MailAddress(from, "SecureWatch Alerts"),
+            Subject = $"SecureWatch {threat.Severity} Alert: {threat.ThreatType}",
+            Body = BuildThreatAlertBody(threat, incident),
+            IsBodyHtml = false
+        };
+
+        foreach (var recipient in to.Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            message.To.Add(recipient);
+        }
+
+        using var client = new SmtpClient(host, port)
+        {
+            EnableSsl = true,
+            Credentials = new NetworkCredential(username, password)
+        };
+
+        await client.SendMailAsync(message, cancellationToken);
+        logger.LogInformation("SMTP alert sent for threat {ThreatId} to {Recipients}", threat.Id, to);
+    }
+
+    private static string BuildThreatAlertBody(Threat threat, Incident? incident)
+    {
+        var incidentLine = incident is null
+            ? "Incident: Not created"
+            : $"Incident: {incident.Title} ({incident.Status})";
+
+        return $"""
+SecureWatch Security Alert
+
+Threat Type: {threat.ThreatType}
+Severity: {threat.Severity}
+Source IP: {threat.SourceIP}
+Failed Attempts: {threat.FailedAttempts}
+Risk Score: {threat.RiskScore}
+{incidentLine}
+
+Description:
+{threat.Description}
+
+Recommended Actions:
+{threat.Recommendation}
+
+Possible Impact:
+{threat.AiImpact ?? "Review affected systems and authentication activity."}
+
+Prevention Steps:
+{threat.AiPreventionSteps ?? "Enable MFA, enforce lockout thresholds, and monitor repeated authentication failures."}
+
+Dashboard:
+http://localhost:3000/incidents
+""";
     }
 }
 
