@@ -35,7 +35,9 @@ services:
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-securewatch};Username=${POSTGRES_USER:-securewatch};Password=${POSTGRES_PASSWORD:-securewatch_password}
       Jwt__Issuer: SecureWatch
       Jwt__Audience: SecureWatchUsers
-      Jwt__Key: ChangeThisDevelopmentSecretKeyForSecureWatchJwtTokens123!
+      Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env}
+      Jwt__ExpiresMinutes: ${JWT_EXPIRES_MINUTES:-120}
+      Jwt__RefreshTokenDays: ${JWT_REFRESH_TOKEN_DAYS:-7}
       SecurityEngine__BaseUrl: http://security-engine:8000
       AbuseIPDB__ApiKey: ${ABUSEIPDB_API_KEY:-}
       Nvd__ApiKey: ${NVD_API_KEY:-}

@@ -19,3 +19,21 @@ public sealed record CveRecordDto(
     string Description,
     DateTimeOffset? PublishedDate,
     string ReferenceUrl);
+
+public sealed record EmailAlertDto(
+    Guid Id,
+    Guid? ThreatId,
+    string Recipients,
+    string Subject,
+    string Status,
+    string ErrorMessage,
+    DateTimeOffset CreatedAt);
+
+public sealed record SystemStatusDto(
+    bool SmtpConfigured,
+    bool OpenAiConfigured,
+    bool AbuseIpDbConfigured,
+    bool NvdConfigured,
+    int FailedLoginLockoutThreshold,
+    int RecentEmailAlerts,
+    int FailedEmailAlerts);

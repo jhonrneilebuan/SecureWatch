@@ -22,8 +22,8 @@ export function Register() {
         role: String(form.get('role')) as Role,
       });
       navigate('/');
-    } catch {
-      setError('Registration failed. The email may already be registered.');
+    } catch (err: any) {
+      setError(err.response?.data ?? 'Registration failed. The email may already be registered.');
     }
   }
 
@@ -36,6 +36,7 @@ export function Register() {
           <Input name="fullName" placeholder="Full name" required />
           <Input name="email" type="email" placeholder="email@company.com" required />
           <Input name="password" type="password" placeholder="Password" minLength={8} required />
+          <p className="text-xs text-slate-500">Use 8+ characters with uppercase, lowercase, number, and special character.</p>
           <select name="role" className="h-10 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100">
             <option value="Analyst">Analyst</option>
             <option value="Admin">Admin</option>

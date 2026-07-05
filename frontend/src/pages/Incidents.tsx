@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -26,6 +27,7 @@ export function Incidents() {
               <p className="text-lg font-semibold">{incident.title}</p>
               <p className="mt-1 text-sm text-slate-400">{incident.description}</p>
               <p className="mt-2 text-sm text-slate-500">Priority: {incident.priority} | Status: {incident.status}</p>
+              <Link to={`/incidents/${incident.id}`} className="mt-2 inline-block text-sm text-primary">Open details</Link>
             </div>
             {incident.status !== 'Resolved' && <Button onClick={() => resolve(incident.id)}>Mark Resolved</Button>}
           </div>

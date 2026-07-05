@@ -14,6 +14,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IpReputation> IpReputations => Set<IpReputation>();
     public DbSet<CveRecord> CveRecords => Set<CveRecord>();
+    public DbSet<LoginAttempt> LoginAttempts => Set<LoginAttempt>();
+    public DbSet<EmailAlert> EmailAlerts => Set<EmailAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +26,21 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.FullName).HasMaxLength(160);
             entity.Property(x => x.Role).HasConversion<string>();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.RefreshTokenHash).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<LoginAttempt>(entity =>
+        {
+            entity.HasIndex(x => new { x.Email, x.IpAddress, x.AttemptedAt });
+            entity.Property(x => x.Email).HasMaxLength(256);
+            entity.Property(x => x.IpAddress).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<EmailAlert>(entity =>
+        {
+            entity.Property(x => x.Recipients).HasMaxLength(600);
+            entity.Property(x => x.Subject).HasMaxLength(240);
+            entity.Property(x => x.Status).HasConversion<string>();
         });
 
         modelBuilder.Entity<SecurityLog>(entity =>

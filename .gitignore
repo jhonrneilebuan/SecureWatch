@@ -4,6 +4,8 @@
 **/verify-build/
 **/node_modules/
 **/__pycache__/
+**/.pytest-packages/
+**/.pytest_cache/
 *.pyc
 .env
 .venv/

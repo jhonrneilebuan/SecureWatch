@@ -19,6 +19,33 @@ public sealed class IncidentsController(AppDbContext dbContext) : ControllerBase
             .Select(x => new IncidentDto(x.Id, x.ThreatId, x.Title, x.Description, x.Priority, x.Status, x.AssignedTo, x.CreatedAt, x.UpdatedAt, x.ResolvedAt))
             .ToListAsync(cancellationToken));
 
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var incident = await dbContext.Incidents.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (incident is null) return NotFound();
+
+        var notes = await dbContext.IncidentNotes.AsNoTracking()
+            .Where(x => x.IncidentId == id)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return Ok(new
+        {
+            incident.Id,
+            incident.ThreatId,
+            incident.Title,
+            incident.Description,
+            Priority = incident.Priority.ToString(),
+            Status = incident.Status.ToString(),
+            incident.AssignedTo,
+            incident.CreatedAt,
+            incident.UpdatedAt,
+            incident.ResolvedAt,
+            Notes = notes
+        });
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create(CreateIncidentRequest request, CancellationToken cancellationToken)
     {

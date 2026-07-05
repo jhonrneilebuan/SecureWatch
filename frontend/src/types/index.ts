@@ -2,9 +2,11 @@ export type Role = 'Admin' | 'Analyst';
 
 export interface AuthResponse {
   token: string;
+  refreshToken: string;
   email: string;
   fullName: string;
   role: Role;
+  expiresAt: string;
 }
 
 export interface DashboardSummary {
@@ -18,7 +20,10 @@ export interface DashboardSummary {
   failedLoginAttempts: number;
   threatSeverity: { severity: string; count: number }[];
   attackTimeline: { date: string; threats: number }[];
+  failedLoginTimeline: { date: string; failedAttempts: number }[];
   topAttackingIps: { ipAddress: string; count: number }[];
+  topCountries: { name: string; count: number }[];
+  topIsps: { name: string; count: number }[];
   incidentStatus: { status: string; count: number }[];
 }
 
@@ -49,6 +54,26 @@ export interface Incident {
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
+}
+
+export interface EmailAlert {
+  id: string;
+  threatId?: string;
+  recipients: string;
+  subject: string;
+  status: string;
+  errorMessage: string;
+  createdAt: string;
+}
+
+export interface SystemStatus {
+  smtpConfigured: boolean;
+  openAiConfigured: boolean;
+  abuseIpDbConfigured: boolean;
+  nvdConfigured: boolean;
+  failedLoginLockoutThreshold: number;
+  recentEmailAlerts: number;
+  failedEmailAlerts: number;
 }
 
 export interface IpReputation {

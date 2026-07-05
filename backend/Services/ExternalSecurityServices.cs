@@ -49,18 +49,27 @@ public sealed class IpReputationService(AppDbContext dbContext, IHttpClientFacto
 
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
-            var client = httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("Key", apiKey);
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            var response = await client.GetAsync($"https://api.abuseipdb.com/api/v2/check?ipAddress={Uri.EscapeDataString(ipAddress)}&maxAgeInDays=90", cancellationToken);
-            response.EnsureSuccessStatusCode();
-            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-            var data = doc.RootElement.GetProperty("data");
-            entity.AbuseConfidenceScore = data.GetProperty("abuseConfidenceScore").GetInt32();
-            entity.CountryCode = data.TryGetProperty("countryCode", out var country) ? country.GetString() ?? string.Empty : string.Empty;
-            entity.Isp = data.TryGetProperty("isp", out var isp) ? isp.GetString() ?? string.Empty : string.Empty;
-            entity.TotalReports = data.TryGetProperty("totalReports", out var reports) ? reports.GetInt32() : 0;
-            entity.IsMalicious = entity.AbuseConfidenceScore >= 75 || entity.TotalReports >= 10;
+            try
+            {
+                var client = httpClientFactory.CreateClient();
+                client.DefaultRequestHeaders.Add("Key", apiKey);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                var response = await client.GetAsync($"https://api.abuseipdb.com/api/v2/check?ipAddress={Uri.EscapeDataString(ipAddress)}&maxAgeInDays=90", cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+                    var data = doc.RootElement.GetProperty("data");
+                    entity.AbuseConfidenceScore = data.GetProperty("abuseConfidenceScore").GetInt32();
+                    entity.CountryCode = data.TryGetProperty("countryCode", out var country) ? country.GetString() ?? string.Empty : string.Empty;
+                    entity.Isp = data.TryGetProperty("isp", out var isp) ? isp.GetString() ?? string.Empty : string.Empty;
+                    entity.TotalReports = data.TryGetProperty("totalReports", out var reports) ? reports.GetInt32() : 0;
+                    entity.IsMalicious = entity.AbuseConfidenceScore >= 75 || entity.TotalReports >= 10;
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                entity.Isp = "Lookup unavailable";
+            }
         }
 
         await dbContext.IpReputations.AddAsync(entity, cancellationToken);
@@ -78,31 +87,40 @@ public sealed class CveLookupService(AppDbContext dbContext, IHttpClientFactory 
         var apiKey = configuration["Nvd:ApiKey"];
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
-            url += $"&apiKey={Uri.EscapeDataString(apiKey)}";
+            client.DefaultRequestHeaders.Add("apiKey", apiKey);
         }
+
         using var response = await client.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
 
         var records = new List<CveRecord>();
-        foreach (var item in doc.RootElement.GetProperty("vulnerabilities").EnumerateArray().Take(10))
+        if (!doc.RootElement.TryGetProperty("vulnerabilities", out var vulnerabilities))
+        {
+            return [];
+        }
+
+        foreach (var item in vulnerabilities.EnumerateArray().Take(20))
         {
             var cve = item.GetProperty("cve");
             var cveId = cve.GetProperty("id").GetString() ?? string.Empty;
-            var description = cve.GetProperty("descriptions").EnumerateArray()
-                .FirstOrDefault(x => x.GetProperty("lang").GetString() == "en")
-                .GetProperty("value").GetString() ?? string.Empty;
-            var metrics = cve.TryGetProperty("metrics", out var m) ? m : default;
-            var severity = "Unknown";
-            decimal? score = null;
-            if (metrics.ValueKind != JsonValueKind.Undefined && metrics.TryGetProperty("cvssMetricV31", out var cvss31))
-            {
-                var cvssData = cvss31[0].GetProperty("cvssData");
-                severity = cvssData.GetProperty("baseSeverity").GetString() ?? severity;
-                score = cvssData.GetProperty("baseScore").GetDecimal();
-            }
+            var description = cve.TryGetProperty("descriptions", out var descriptions)
+                ? descriptions.EnumerateArray()
+                    .FirstOrDefault(x => x.TryGetProperty("lang", out var lang) && lang.GetString() == "en")
+                    .TryGetProperty("value", out var value) ? value.GetString() ?? string.Empty : string.Empty
+                : string.Empty;
+            var (severity, score) = ExtractCvss(cve);
 
-            var referenceUrl = cve.GetProperty("references").GetProperty("referenceData").EnumerateArray().FirstOrDefault().GetProperty("url").GetString() ?? string.Empty;
+            var referenceUrl = string.Empty;
+            if (cve.TryGetProperty("references", out var references) &&
+                references.ValueKind == JsonValueKind.Array)
+            {
+                var firstReference = references.EnumerateArray().FirstOrDefault();
+                referenceUrl = firstReference.ValueKind != JsonValueKind.Undefined &&
+                    firstReference.TryGetProperty("url", out var referenceUrlElement)
+                    ? referenceUrlElement.GetString() ?? string.Empty
+                    : string.Empty;
+            }
             records.Add(new CveRecord
             {
                 Id = Guid.NewGuid(),
@@ -120,6 +138,41 @@ public sealed class CveLookupService(AppDbContext dbContext, IHttpClientFactory 
         await dbContext.SaveChangesAsync(cancellationToken);
         return records.Select(x => new CveRecordDto(x.Id, x.Query, x.CveId, x.Severity, x.CvssScore, x.Description, x.PublishedDate, x.ReferenceUrl)).ToList();
     }
+
+    private static (string Severity, decimal? Score) ExtractCvss(JsonElement cve)
+    {
+        if (!cve.TryGetProperty("metrics", out var metrics) || metrics.ValueKind != JsonValueKind.Object)
+        {
+            return ("Unknown", null);
+        }
+
+        foreach (var metricName in new[] { "cvssMetricV31", "cvssMetricV30", "cvssMetricV2" })
+        {
+            if (!metrics.TryGetProperty(metricName, out var metricArray) || metricArray.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            var metric = metricArray.EnumerateArray().FirstOrDefault();
+            if (metric.ValueKind == JsonValueKind.Undefined || !metric.TryGetProperty("cvssData", out var cvssData))
+            {
+                continue;
+            }
+
+            var severity = cvssData.TryGetProperty("baseSeverity", out var baseSeverity)
+                ? baseSeverity.GetString() ?? "Unknown"
+                : metric.TryGetProperty("baseSeverity", out var metricSeverity)
+                    ? metricSeverity.GetString() ?? "Unknown"
+                    : "Unknown";
+            var score = cvssData.TryGetProperty("baseScore", out var baseScore) && baseScore.TryGetDecimal(out var value)
+                ? value
+                : (decimal?)null;
+
+            return (severity, score);
+        }
+
+        return ("Unknown", null);
+    }
 }
 
 public sealed class AiRecommendationService(IHttpClientFactory httpClientFactory, IConfiguration configuration) : IAiRecommendationService
@@ -129,30 +182,86 @@ public sealed class AiRecommendationService(IHttpClientFactory httpClientFactory
         var apiKey = configuration["OpenAI:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            return new AiRecommendationResponse(
-                $"{request.ThreatType} activity was detected from {request.SourceIp} with {request.FailedAttempts} failed attempts.",
-                "The activity may indicate credential stuffing, account takeover attempts, or reconnaissance against authentication systems.",
-                "Block or rate-limit the source IP, enable MFA, reset affected credentials, and review related authentication events.",
-                "Use account lockout policies, MFA, IP allowlists for admin portals, alerting thresholds, and continuous log review.");
+            return CreateFallbackRecommendation(request);
         }
 
-        var client = httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new("Bearer", apiKey);
-        var prompt = $"Create concise SOC guidance for threat={request.ThreatType}, severity={request.Severity}, ip={request.SourceIp}, failedAttempts={request.FailedAttempts}, riskScore={request.RiskScore}.";
-        var payload = new
+        try
         {
-            model = configuration["OpenAI:Model"] ?? "gpt-4o-mini",
-            messages = new[] { new { role = "user", content = prompt } }
-        };
-        using var response = await client.PostAsJsonAsync("https://api.openai.com/v1/chat/completions", payload, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
-        return new AiRecommendationResponse(content, content, content, content);
+            var client = httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new("Bearer", apiKey);
+            var prompt = $$"""
+Return concise SOC guidance as strict JSON with keys:
+threatExplanation, possibleImpact, recommendedActions, preventionSteps.
+Threat={{request.ThreatType}}, severity={{request.Severity}}, ip={{request.SourceIp}}, failedAttempts={{request.FailedAttempts}}, riskScore={{request.RiskScore}}.
+""";
+            var payload = new
+            {
+                model = configuration["OpenAI:Model"] ?? "gpt-4o-mini",
+                response_format = new { type = "json_object" },
+                messages = new[] { new { role = "user", content = prompt } }
+            };
+            using var response = await SendWithRetryAsync(client, payload, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return CreateFallbackRecommendation(request);
+            }
+
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+            return ParseStructuredRecommendation(content) ?? CreateFallbackRecommendation(request);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            return CreateFallbackRecommendation(request);
+        }
+    }
+
+    private static async Task<HttpResponseMessage> SendWithRetryAsync(HttpClient client, object payload, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var response = await client.PostAsJsonAsync("https://api.openai.com/v1/chat/completions", payload, cancellationToken);
+            if ((int)response.StatusCode is not (429 or >= 500) || attempt == 2)
+            {
+                return response;
+            }
+
+            response.Dispose();
+            await Task.Delay(TimeSpan.FromMilliseconds(400 * (attempt + 1)), cancellationToken);
+        }
+
+        throw new InvalidOperationException("OpenAI retry loop exited unexpectedly.");
+    }
+
+    private static AiRecommendationResponse? ParseStructuredRecommendation(string content)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
+            return new AiRecommendationResponse(
+                root.GetProperty("threatExplanation").GetString() ?? string.Empty,
+                root.GetProperty("possibleImpact").GetString() ?? string.Empty,
+                root.GetProperty("recommendedActions").GetString() ?? string.Empty,
+                root.GetProperty("preventionSteps").GetString() ?? string.Empty);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static AiRecommendationResponse CreateFallbackRecommendation(AiRecommendationRequest request)
+    {
+        return new AiRecommendationResponse(
+            $"{request.ThreatType} activity was detected from {request.SourceIp} with {request.FailedAttempts} failed attempts.",
+            "The activity may indicate credential stuffing, account takeover attempts, or reconnaissance against authentication systems.",
+            "Block or rate-limit the source IP, enable MFA, reset affected credentials, and review related authentication events.",
+            "Use account lockout policies, MFA, IP allowlists for admin portals, alerting thresholds, and continuous log review.");
     }
 }
 
-public sealed class EmailAlertService(IConfiguration configuration, ILogger<EmailAlertService> logger) : IEmailAlertService
+public sealed class EmailAlertService(IConfiguration configuration, ILogger<EmailAlertService> logger, AppDbContext dbContext) : IEmailAlertService
 {
     public async Task SendThreatAlertAsync(Threat threat, Incident? incident, CancellationToken cancellationToken)
     {
@@ -170,13 +279,15 @@ public sealed class EmailAlertService(IConfiguration configuration, ILogger<Emai
             string.IsNullOrWhiteSpace(to))
         {
             logger.LogInformation("SMTP is not fully configured. Skipping alert for threat {ThreatId}", threat.Id);
+            await RecordEmailAlertAsync(threat.Id, to ?? string.Empty, $"SecureWatch {threat.Severity} Alert: {threat.ThreatType}", EmailAlertStatus.Skipped, "SMTP is not fully configured.", cancellationToken);
             return;
         }
 
+        var subject = $"SecureWatch {threat.Severity} Alert: {threat.ThreatType}";
         using var message = new MailMessage
         {
             From = new MailAddress(from, "SecureWatch Alerts"),
-            Subject = $"SecureWatch {threat.Severity} Alert: {threat.ThreatType}",
+            Subject = subject,
             Body = BuildThreatAlertBody(threat, incident),
             IsBodyHtml = false
         };
@@ -192,8 +303,31 @@ public sealed class EmailAlertService(IConfiguration configuration, ILogger<Emai
             Credentials = new NetworkCredential(username, password)
         };
 
-        await client.SendMailAsync(message, cancellationToken);
-        logger.LogInformation("SMTP alert sent for threat {ThreatId} to {Recipients}", threat.Id, to);
+        try
+        {
+            await client.SendMailAsync(message, cancellationToken);
+            await RecordEmailAlertAsync(threat.Id, to, subject, EmailAlertStatus.Sent, string.Empty, cancellationToken);
+            logger.LogInformation("SMTP alert sent for threat {ThreatId} to {Recipients}", threat.Id, to);
+        }
+        catch (Exception ex) when (ex is SmtpException or InvalidOperationException)
+        {
+            await RecordEmailAlertAsync(threat.Id, to, subject, EmailAlertStatus.Failed, ex.Message, cancellationToken);
+            logger.LogError(ex, "SMTP alert failed for threat {ThreatId}. Check SMTP host, port, username, app password, and sender permissions.", threat.Id);
+        }
+    }
+
+    private async Task RecordEmailAlertAsync(Guid threatId, string recipients, string subject, EmailAlertStatus status, string error, CancellationToken cancellationToken)
+    {
+        await dbContext.EmailAlerts.AddAsync(new EmailAlert
+        {
+            Id = Guid.NewGuid(),
+            ThreatId = threatId,
+            Recipients = recipients,
+            Subject = subject,
+            Status = status,
+            ErrorMessage = error
+        }, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static string BuildThreatAlertBody(Threat threat, Incident? incident)
@@ -236,8 +370,66 @@ public sealed class ReportService(AppDbContext dbContext) : IReportService
     {
         var logs = await dbContext.SecurityLogs.CountAsync(cancellationToken);
         var threats = await dbContext.Threats.CountAsync(cancellationToken);
-        var incidents = await dbContext.Incidents.CountAsync(cancellationToken);
-        var summary = $"SecureWatch Security Report\nGenerated: {DateTimeOffset.UtcNow:u}\nTotal logs analyzed: {logs}\nThreats detected: {threats}\nIncidents: {incidents}\nExecutive summary: Review high-risk threats, investigate active incidents, and enforce MFA on exposed accounts.";
+        var openIncidents = await dbContext.Incidents.CountAsync(x => x.Status != IncidentStatus.Resolved, cancellationToken);
+        var resolvedIncidents = await dbContext.Incidents.CountAsync(x => x.Status == IncidentStatus.Resolved, cancellationToken);
+        var highRiskThreats = await dbContext.Threats.CountAsync(x => x.Severity == ThreatSeverity.High || x.Severity == ThreatSeverity.Critical, cancellationToken);
+        var failedLogins = await dbContext.SecurityLogs.SumAsync(x => x.FailedLoginAttempts, cancellationToken);
+        var sentAlerts = await dbContext.EmailAlerts.CountAsync(x => x.Status == EmailAlertStatus.Sent, cancellationToken);
+        var failedAlerts = await dbContext.EmailAlerts.CountAsync(x => x.Status == EmailAlertStatus.Failed, cancellationToken);
+        var topIps = await dbContext.Threats
+            .AsNoTracking()
+            .Where(x => !string.IsNullOrWhiteSpace(x.SourceIP))
+            .GroupBy(x => x.SourceIP)
+            .Select(x => new { Ip = x.Key, Count = x.Count(), MaxRisk = x.Max(t => t.RiskScore) })
+            .OrderByDescending(x => x.MaxRisk)
+            .ThenByDescending(x => x.Count)
+            .Take(5)
+            .ToListAsync(cancellationToken);
+        var recentThreats = await dbContext.Threats
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(5)
+            .Select(x => new { x.ThreatType, x.Severity, x.SourceIP, x.RiskScore, x.CreatedAt })
+            .ToListAsync(cancellationToken);
+
+        var lines = new List<string>
+        {
+            "SecureWatch Security Report",
+            $"Generated: {DateTimeOffset.UtcNow:u}",
+            "",
+            "Executive Summary",
+            highRiskThreats > 0
+                ? $"High-risk activity is present. {highRiskThreats} high or critical threats should be reviewed first."
+                : "No high or critical threats are currently recorded.",
+            $"Open incidents: {openIncidents}. Resolved incidents: {resolvedIncidents}. SMTP alerts sent: {sentAlerts}, failed: {failedAlerts}.",
+            "",
+            "Dashboard Metrics",
+            $"Total logs analyzed: {logs}",
+            $"Threats detected: {threats}",
+            $"High-risk threats: {highRiskThreats}",
+            $"Failed login attempts from uploaded logs: {failedLogins}",
+            "",
+            "Top Risk Source IPs"
+        };
+
+        lines.AddRange(topIps.Count == 0
+            ? ["No source IPs recorded yet."]
+            : topIps.Select(x => $"{x.Ip} - {x.Count} threat(s), max risk {x.MaxRisk}"));
+
+        lines.Add("");
+        lines.Add("Recent Threats");
+        lines.AddRange(recentThreats.Count == 0
+            ? ["No threats recorded yet."]
+            : recentThreats.Select(x => $"{x.CreatedAt:u} - {x.ThreatType} - {x.Severity} - {x.SourceIP} - risk {x.RiskScore}"));
+
+        lines.Add("");
+        lines.Add("Recommended Actions");
+        lines.Add("1. Investigate high and critical incidents first.");
+        lines.Add("2. Block or rate-limit repeat attacking IPs.");
+        lines.Add("3. Enforce MFA and account lockout on exposed login surfaces.");
+        lines.Add("4. Review failed SMTP alerts so security notifications are not missed.");
+
+        var summary = string.Join('\n', lines);
         await dbContext.Reports.AddAsync(new Report
         {
             Id = Guid.NewGuid(),
@@ -246,13 +438,13 @@ public sealed class ReportService(AppDbContext dbContext) : IReportService
             GeneratedBy = userId
         }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return (CreateSimplePdf(summary), $"securewatch-report-{DateTimeOffset.UtcNow:yyyyMMddHHmm}.pdf");
+        return (CreateSimplePdf(lines), $"securewatch-report-{DateTimeOffset.UtcNow:yyyyMMddHHmm}.pdf");
     }
 
-    private static byte[] CreateSimplePdf(string text)
+    private static byte[] CreateSimplePdf(IEnumerable<string> lines)
     {
-        var escaped = text.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)").Replace("\r", string.Empty).Replace("\n", ") Tj T* (");
-        var body = $"BT /F1 12 Tf 50 760 Td ({escaped}) Tj ET";
+        var escapedLines = lines.Select(line => line.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)").Replace("\r", string.Empty));
+        var body = $"BT /F1 11 Tf 50 760 Td 14 TL ({string.Join(") Tj T* (", escapedLines)}) Tj ET";
         var pdf = "%PDF-1.4\n" +
                   "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n" +
                   "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n" +

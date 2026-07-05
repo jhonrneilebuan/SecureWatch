@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using SecureWatch.Api.Data;
 using SecureWatch.Api.DTOs;
 using SecureWatch.Api.Models;
@@ -11,7 +12,7 @@ namespace SecureWatch.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]
-public sealed class UsersController(AppDbContext dbContext, IPasswordHasher passwordHasher) : ControllerBase
+public sealed class UsersController(AppDbContext dbContext, IPasswordHasher passwordHasher, IPasswordPolicy passwordPolicy) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
@@ -20,18 +21,25 @@ public sealed class UsersController(AppDbContext dbContext, IPasswordHasher pass
     [HttpPost]
     public async Task<IActionResult> Create(CreateUserRequest request, CancellationToken cancellationToken)
     {
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (await dbContext.Users.AnyAsync(x => x.Email == email, cancellationToken))
+        {
+            return Conflict("Email is already registered.");
+        }
+
+        passwordPolicy.Validate(request.Password);
         var user = new User
         {
             Id = Guid.NewGuid(),
-            FullName = request.FullName,
-            Email = request.Email.Trim().ToLowerInvariant(),
+            FullName = request.FullName.Trim(),
+            Email = email,
             PasswordHash = passwordHasher.Hash(request.Password),
             Role = request.Role,
             IsActive = true
         };
 
         await dbContext.Users.AddAsync(user, cancellationToken);
-        await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = user.Id, Action = "User created", EntityType = nameof(User), EntityId = user.Id }, cancellationToken);
+        await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = CurrentUserId(), Action = "User created", EntityType = nameof(User), EntityId = user.Id }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         return CreatedAtAction(nameof(GetAll), new UserDto(user.Id, user.FullName, user.Email, user.Role, user.IsActive, user.CreatedAt));
     }
@@ -48,7 +56,7 @@ public sealed class UsersController(AppDbContext dbContext, IPasswordHasher pass
         user.FullName = request.FullName;
         user.Role = request.Role;
         user.IsActive = request.IsActive;
-        await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = user.Id, Action = "User updated or role changed", EntityType = nameof(User), EntityId = user.Id }, cancellationToken);
+        await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = CurrentUserId(), Action = "User updated or role changed", EntityType = nameof(User), EntityId = user.Id }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         return Ok(new UserDto(user.Id, user.FullName, user.Email, user.Role, user.IsActive, user.CreatedAt));
     }
@@ -63,8 +71,11 @@ public sealed class UsersController(AppDbContext dbContext, IPasswordHasher pass
         }
 
         dbContext.Users.Remove(user);
-        await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = id, Action = "User deleted", EntityType = nameof(User), EntityId = id }, cancellationToken);
+        await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = CurrentUserId(), Action = "User deleted", EntityType = nameof(User), EntityId = id }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
+
+    private Guid CurrentUserId() =>
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId) ? userId : Guid.Empty;
 }

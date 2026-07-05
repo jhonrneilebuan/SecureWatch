@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 using SecureWatch.Api.Configuration;
 using SecureWatch.Api.DTOs;
 using SecureWatch.Api.Models;
@@ -13,10 +15,14 @@ namespace SecureWatch.Api.Services;
 public sealed class AuthService(
     IUserRepository users,
     IPasswordHasher passwordHasher,
+    IPasswordPolicy passwordPolicy,
     SecureWatch.Api.Data.AppDbContext dbContext,
+    IAiRecommendationService aiRecommendationService,
+    IEmailAlertService emailAlertService,
     IOptions<JwtSettings> jwtOptions) : IAuthService
 {
     private readonly JwtSettings _jwt = jwtOptions.Value;
+    private const int LockoutThreshold = 5;
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
@@ -26,6 +32,7 @@ public sealed class AuthService(
             throw new InvalidOperationException("Email is already registered.");
         }
 
+        passwordPolicy.Validate(request.Password);
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -34,20 +41,29 @@ public sealed class AuthService(
             PasswordHash = passwordHasher.Hash(request.Password),
             Role = request.Role
         };
+        var refreshToken = IssueRefreshToken(user);
 
         await users.AddAsync(user, cancellationToken);
         await users.SaveChangesAsync(cancellationToken);
 
-        return CreateResponse(user);
+        return CreateResponse(user, refreshToken);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
+    public async Task<AuthResponse> LoginAsync(LoginRequest request, string ipAddress, CancellationToken cancellationToken)
     {
         var user = await users.GetByEmailAsync(request.Email.Trim().ToLowerInvariant(), cancellationToken);
-        if (user is null || !user.IsActive || !passwordHasher.Verify(request.Password, user.PasswordHash))
+        var passwordValid = user is not null && passwordHasher.Verify(request.Password, user.PasswordHash);
+        var locked = user?.LockedUntil is not null && user.LockedUntil > DateTimeOffset.UtcNow;
+
+        if (user is null || !user.IsActive || locked || !passwordValid)
         {
+            await RecordFailedLoginAsync(request.Email.Trim().ToLowerInvariant(), ipAddress, user, cancellationToken);
             throw new UnauthorizedAccessException("Invalid email or password.");
         }
+
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+        var refreshToken = IssueRefreshToken(user);
 
         await dbContext.AuditLogs.AddAsync(new AuditLog
         {
@@ -55,15 +71,151 @@ public sealed class AuthService(
             UserId = user.Id,
             Action = "User login",
             EntityType = nameof(User),
-            EntityId = user.Id
+            EntityId = user.Id,
+            IpAddress = ipAddress
+        }, cancellationToken);
+        await dbContext.LoginAttempts.AddAsync(new LoginAttempt
+        {
+            Id = Guid.NewGuid(),
+            Email = user.Email,
+            IpAddress = ipAddress,
+            Succeeded = true
         }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return CreateResponse(user);
+        return CreateResponse(user, refreshToken);
+    }
+
+    public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, string ipAddress, CancellationToken cancellationToken)
+    {
+        var tokenHash = HashRefreshToken(request.RefreshToken);
+        var user = await dbContext.Users.FirstOrDefaultAsync(x =>
+            x.RefreshTokenHash == tokenHash &&
+            x.RefreshTokenExpiresAt > DateTimeOffset.UtcNow &&
+            x.IsActive, cancellationToken);
+
+        if (user is null)
+        {
+            throw new UnauthorizedAccessException("Refresh token is invalid or expired.");
+        }
+
+        var refreshToken = IssueRefreshToken(user);
+        await dbContext.AuditLogs.AddAsync(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Action = "Session refreshed",
+            EntityType = nameof(User),
+            EntityId = user.Id,
+            IpAddress = ipAddress
+        }, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return CreateResponse(user, refreshToken);
+    }
+
+    private async Task RecordFailedLoginAsync(string email, string ipAddress, User? user, CancellationToken cancellationToken)
+    {
+        await dbContext.LoginAttempts.AddAsync(new LoginAttempt
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            IpAddress = ipAddress,
+            Succeeded = false
+        }, cancellationToken);
+
+        await dbContext.AuditLogs.AddAsync(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            UserId = user?.Id ?? Guid.Empty,
+            Action = "Failed login",
+            EntityType = nameof(LoginAttempt),
+            IpAddress = ipAddress
+        }, cancellationToken);
+
+        if (user is not null)
+        {
+            user.FailedLoginCount += 1;
+        }
+
+        var since = DateTimeOffset.UtcNow.AddMinutes(-15);
+        var recentFailures = await dbContext.LoginAttempts
+            .CountAsync(x => x.Email == email && x.IpAddress == ipAddress && !x.Succeeded && x.AttemptedAt >= since, cancellationToken) + 1;
+
+        if (recentFailures >= LockoutThreshold)
+        {
+            if (user is not null)
+            {
+                user.LockedUntil = DateTimeOffset.UtcNow.AddMinutes(15);
+            }
+
+            var existingRecentThreat = await dbContext.Threats.AnyAsync(x =>
+                x.ThreatType == "SecureWatch Login Brute Force" &&
+                x.SourceIP == ipAddress &&
+                x.CreatedAt >= since, cancellationToken);
+
+            if (!existingRecentThreat)
+            {
+                var ai = await aiRecommendationService.GenerateAsync(new AiRecommendationRequest(
+                    "SecureWatch Login Brute Force",
+                    ThreatSeverity.High.ToString(),
+                    ipAddress,
+                    recentFailures,
+                    90,
+                    $"Failed login attempts for {email}"), cancellationToken);
+
+                var threat = new Threat
+                {
+                    Id = Guid.NewGuid(),
+                    ThreatType = "SecureWatch Login Brute Force",
+                    Severity = ThreatSeverity.High,
+                    SourceIP = ipAddress,
+                    FailedAttempts = recentFailures,
+                    RiskScore = 90,
+                    Description = $"{recentFailures} failed SecureWatch login attempts were detected for {email} from {ipAddress}.",
+                    Recommendation = ai.RecommendedActions,
+                    AiExplanation = ai.ThreatExplanation,
+                    AiImpact = ai.PossibleImpact,
+                    AiPreventionSteps = ai.PreventionSteps
+                };
+
+                var incident = new Incident
+                {
+                    Id = Guid.NewGuid(),
+                    ThreatId = threat.Id,
+                    Title = "High SecureWatch Login Brute Force",
+                    Description = threat.Description,
+                    Priority = IncidentPriority.High,
+                    Status = IncidentStatus.Open
+                };
+
+                await dbContext.Threats.AddAsync(threat, cancellationToken);
+                await dbContext.Incidents.AddAsync(incident, cancellationToken);
+                await dbContext.AuditLogs.AddAsync(new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user?.Id ?? Guid.Empty,
+                    Action = "Login brute-force threat detected",
+                    EntityType = nameof(Threat),
+                    EntityId = threat.Id,
+                    IpAddress = ipAddress
+                }, cancellationToken);
+                await emailAlertService.SendThreatAlertAsync(threat, incident, cancellationToken);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task RecordLogoutAsync(Guid userId, string ipAddress, CancellationToken cancellationToken)
     {
+        var user = await dbContext.Users.FindAsync([userId], cancellationToken);
+        if (user is not null)
+        {
+            user.RefreshTokenHash = null;
+            user.RefreshTokenExpiresAt = null;
+        }
+
         await dbContext.AuditLogs.AddAsync(new AuditLog
         {
             Id = Guid.NewGuid(),
@@ -76,10 +228,13 @@ public sealed class AuthService(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private AuthResponse CreateResponse(User user) =>
-        new(CreateToken(user), user.Email, user.FullName, user.Role);
+    private AuthResponse CreateResponse(User user, string refreshToken)
+    {
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(_jwt.ExpiresMinutes);
+        return new(CreateToken(user, expiresAt), refreshToken, user.Email, user.FullName, user.Role, expiresAt);
+    }
 
-    private string CreateToken(User user)
+    private string CreateToken(User user, DateTimeOffset expiresAt)
     {
         var claims = new[]
         {
@@ -96,9 +251,24 @@ public sealed class AuthService(
             issuer: _jwt.Issuer,
             audience: _jwt.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_jwt.ExpiresMinutes),
+            expires: expiresAt.UtcDateTime,
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private string IssueRefreshToken(User user)
+    {
+        var tokenBytes = RandomNumberGenerator.GetBytes(64);
+        var refreshToken = Convert.ToBase64String(tokenBytes);
+        user.RefreshTokenHash = HashRefreshToken(refreshToken);
+        user.RefreshTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(_jwt.RefreshTokenDays);
+        return refreshToken;
+    }
+
+    private static string HashRefreshToken(string token)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(hash);
     }
 }

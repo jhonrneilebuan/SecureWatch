@@ -14,5 +14,9 @@ public sealed class User
     public string PasswordHash { get; set; } = string.Empty;
     public UserRole Role { get; set; }
     public bool IsActive { get; set; } = true;
+    public int FailedLoginCount { get; set; }
+    public DateTimeOffset? LockedUntil { get; set; }
+    public string? RefreshTokenHash { get; set; }
+    public DateTimeOffset? RefreshTokenExpiresAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

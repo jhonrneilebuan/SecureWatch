@@ -6,11 +6,18 @@
     <UserSecretsId>securewatch-api</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="SecureWatch.Api.SmokeTests\**\*.cs" />
+    <Content Remove="SecureWatch.Api.SmokeTests\**\*" />
+    <None Remove="SecureWatch.Api.SmokeTests\**\*" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.7" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.4" />
   </ItemGroup>
 </Project>

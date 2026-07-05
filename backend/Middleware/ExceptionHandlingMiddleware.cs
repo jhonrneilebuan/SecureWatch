@@ -16,6 +16,7 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
         }
         catch (InvalidOperationException ex)
         {
+            logger.LogWarning(ex, "Invalid API request");
             await WriteErrorAsync(context, HttpStatusCode.BadRequest, ex.Message);
         }
         catch (Exception ex)

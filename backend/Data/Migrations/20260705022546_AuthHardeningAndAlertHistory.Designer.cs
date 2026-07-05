@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SecureWatch.Api.Data;
@@ -11,9 +12,11 @@ using SecureWatch.Api.Data;
 namespace SecureWatch.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260705022546_AuthHardeningAndAlertHistory")]
+    partial class AuthHardeningAndAlertHistory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -431,13 +434,6 @@ namespace SecureWatch.Api.Data.Migrations
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("RefreshTokenExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RefreshTokenHash")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
 
                     b.Property<string>("Role")
                         .IsRequired()

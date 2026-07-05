@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Activity, Bell, Bug, FileBarChart, FileText, Globe, LayoutDashboard, LogOut, Settings, ShieldAlert, Upload, Users } from 'lucide-react';
+import { Activity, Bell, Bug, FileBarChart, FileText, Globe, LayoutDashboard, LogOut, Mail, Settings, ShieldAlert, Upload, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/button';
 
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/ip-reputation', label: 'IP Reputation', icon: Globe },
   { to: '/cve-lookup', label: 'CVE Lookup', icon: Bug },
   { to: '/audit-logs', label: 'Audit Logs', icon: FileText, admin: true },
+  { to: '/email-alerts', label: 'Email Alerts', icon: Mail },
   { to: '/users', label: 'User Management', icon: Users, admin: true },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];

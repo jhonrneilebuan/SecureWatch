@@ -8,6 +8,7 @@ public sealed class LogAnalysisService(
     AppDbContext dbContext,
     ISecurityEngineClient securityEngineClient,
     IAiRecommendationService aiRecommendationService,
+    IIpReputationService ipReputationService,
     IEmailAlertService emailAlertService) : ILogAnalysisService
 {
     private static readonly string[] AllowedExtensions = [".log", ".txt", ".csv"];
@@ -70,6 +71,11 @@ public sealed class LogAnalysisService(
             threat.AiImpact = ai.PossibleImpact;
             threat.AiPreventionSteps = ai.PreventionSteps;
             threat.Recommendation = ai.RecommendedActions;
+
+            if (!string.IsNullOrWhiteSpace(threat.SourceIP) && threat.SourceIP != "Unknown")
+            {
+                await ipReputationService.CheckAsync(threat.SourceIP, cancellationToken);
+            }
 
             await dbContext.Threats.AddAsync(threat, cancellationToken);
 

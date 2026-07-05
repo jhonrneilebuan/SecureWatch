@@ -98,7 +98,11 @@ async def analyze_log(file: UploadFile = File(...)) -> AnalyzeLogResponse:
             failed_attempts_by_ip.update([ips[0]])
 
     if not failed_attempts_by_ip and not sensitive_route_hits:
-        return AnalyzeLogResponse(threatDetected=False)
+        return AnalyzeLogResponse(
+            threatDetected=False,
+            successfulLogins=successful_logins,
+            topSourceIps=[ip for ip, _ in all_ips.most_common(5)],
+        )
 
     source_ip, attempts = failed_attempts_by_ip.most_common(1)[0] if failed_attempts_by_ip else sensitive_route_hits.most_common(1)[0]
     risk_score = min(100, attempts * 15 + sensitive_route_hits[source_ip] * 8 + (30 if source_ip in KNOWN_MALICIOUS_IPS else 0))

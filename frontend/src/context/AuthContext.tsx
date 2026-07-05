@@ -19,6 +19,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const persist = (auth: AuthResponse) => {
     localStorage.setItem('securewatch_token', auth.token);
+    localStorage.setItem('securewatch_refresh_token', auth.refreshToken);
     localStorage.setItem('securewatch_user', JSON.stringify(auth));
     setUser(auth);
   };
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     logout() {
       api.post('/auth/logout').catch(() => undefined);
       localStorage.removeItem('securewatch_token');
+      localStorage.removeItem('securewatch_refresh_token');
       localStorage.removeItem('securewatch_user');
       setUser(null);
     },
