@@ -4,12 +4,12 @@ import { ShieldAlert, CheckCircle, Clock, ArrowRight } from 'lucide-react';
 import { api } from '../api/client';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Incident } from '../types';
+import { Incident, PagedResult } from '../types';
 
 export function Incidents() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
-  const load = () => api.get<Incident[]>('/incidents').then(({ data }) => setIncidents(data)).catch(() => setIncidents([]));
+  const load = () => api.get<PagedResult<Incident>>('/incidents', { params: { pageSize: 50 } }).then(({ data }) => setIncidents(data.items)).catch(() => setIncidents([]));
 
   useEffect(() => { load(); }, []);
 

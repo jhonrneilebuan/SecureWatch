@@ -161,6 +161,11 @@ namespace SecureWatch.Api.Data.Migrations
                     b.Property<DateTimeOffset?>("ResolvedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ResolutionNotes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -179,6 +184,43 @@ namespace SecureWatch.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Incidents");
+                });
+
+            modelBuilder.Entity("SecureWatch.Api.Models.IncidentEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AddedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EvidenceType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IncidentId");
+
+                    b.ToTable("IncidentEvidence");
                 });
 
             modelBuilder.Entity("SecureWatch.Api.Models.IncidentNote", b =>
@@ -277,6 +319,46 @@ namespace SecureWatch.Api.Data.Migrations
                     b.ToTable("LoginAttempts");
                 });
 
+            modelBuilder.Entity("SecureWatch.Api.Models.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsRead", "CreatedAt");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("SecureWatch.Api.Models.Report", b =>
                 {
                     b.Property<Guid>("Id")
@@ -326,6 +408,16 @@ namespace SecureWatch.Api.Data.Migrations
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("SourceSystem")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -368,6 +460,16 @@ namespace SecureWatch.Api.Data.Migrations
 
                     b.Property<int>("FailedAttempts")
                         .HasColumnType("integer");
+
+                    b.Property<string>("MitreTechniqueId")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<string>("MitreTechniqueName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.Property<string>("Recommendation")
                         .IsRequired()
@@ -460,8 +562,18 @@ namespace SecureWatch.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SecureWatch.Api.Models.IncidentEvidence", b =>
+                {
+                    b.HasOne("SecureWatch.Api.Models.Incident", null)
+                        .WithMany("Evidence")
+                        .HasForeignKey("IncidentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SecureWatch.Api.Models.Incident", b =>
                 {
+                    b.Navigation("Evidence");
                     b.Navigation("Notes");
                 });
 #pragma warning restore 612, 618

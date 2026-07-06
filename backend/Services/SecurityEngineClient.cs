@@ -23,6 +23,6 @@ public sealed class SecurityEngineClient(HttpClient httpClient) : ISecurityEngin
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<SecurityEngineResult>(cancellationToken: cancellationToken)
-            ?? new SecurityEngineResult(false, null, null, null, 0, 0, 0, [], null, null);
+            ?? new SecurityEngineResult(false, null, null, null, 0, 0, 0, [], null, null, null, null);
     }
 }

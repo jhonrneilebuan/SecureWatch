@@ -17,12 +17,20 @@ public sealed class SettingsController(IConfiguration configuration, AppDbContex
         var recentAlerts = await dbContext.EmailAlerts.CountAsync(cancellationToken);
         var failedAlerts = await dbContext.EmailAlerts.CountAsync(x => x.Status == SecureWatch.Api.Models.EmailAlertStatus.Failed, cancellationToken);
         return Ok(new SystemStatusDto(
-            !string.IsNullOrWhiteSpace(configuration["Smtp:Host"]) && !string.IsNullOrWhiteSpace(configuration["Smtp:To"]),
-            !string.IsNullOrWhiteSpace(configuration["OpenAI:ApiKey"]),
-            !string.IsNullOrWhiteSpace(configuration["AbuseIPDB:ApiKey"]),
-            !string.IsNullOrWhiteSpace(configuration["Nvd:ApiKey"]),
+            IsConfigured(configuration["Smtp:Host"]) && IsConfigured(configuration["Smtp:To"]),
+            IsConfigured(configuration["OpenAI:ApiKey"]),
+            IsConfigured(configuration["AbuseIPDB:ApiKey"]),
+            IsConfigured(configuration["VirusTotal:ApiKey"]),
+            IsConfigured(configuration["Shodan:ApiKey"]),
+            IsConfigured(configuration["Otx:ApiKey"]),
+            IsConfigured(configuration["Nvd:ApiKey"]),
             5,
             recentAlerts,
             failedAlerts));
     }
+
+    private static bool IsConfigured(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        !value.Contains("your_key_here", StringComparison.OrdinalIgnoreCase) &&
+        !value.Contains("replace_with", StringComparison.OrdinalIgnoreCase);
 }

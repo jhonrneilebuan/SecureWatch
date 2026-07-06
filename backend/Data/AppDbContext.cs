@@ -10,12 +10,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Threat> Threats => Set<Threat>();
     public DbSet<Incident> Incidents => Set<Incident>();
     public DbSet<IncidentNote> IncidentNotes => Set<IncidentNote>();
+    public DbSet<IncidentEvidence> IncidentEvidence => Set<IncidentEvidence>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IpReputation> IpReputations => Set<IpReputation>();
     public DbSet<CveRecord> CveRecords => Set<CveRecord>();
     public DbSet<LoginAttempt> LoginAttempts => Set<LoginAttempt>();
     public DbSet<EmailAlert> EmailAlerts => Set<EmailAlert>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +49,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             entity.Property(x => x.FileName).HasMaxLength(260);
             entity.Property(x => x.ContentType).HasMaxLength(120);
+            entity.Property(x => x.SourceSystem).HasMaxLength(160);
+            entity.Property(x => x.SourceType).HasMaxLength(80);
             entity.Property(x => x.Status).HasConversion<string>();
         });
 
@@ -55,6 +59,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.ThreatType).HasMaxLength(120);
             entity.Property(x => x.Severity).HasConversion<string>();
             entity.Property(x => x.SourceIP).HasMaxLength(64);
+            entity.Property(x => x.MitreTechniqueId).HasMaxLength(24);
+            entity.Property(x => x.MitreTechniqueName).HasMaxLength(160);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.Property(x => x.Title).HasMaxLength(180);
+            entity.Property(x => x.EntityType).HasMaxLength(80);
+            entity.Property(x => x.Severity).HasConversion<string>();
+            entity.HasIndex(x => new { x.IsRead, x.CreatedAt });
         });
 
         modelBuilder.Entity<Incident>(entity =>
@@ -62,12 +76,21 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Title).HasMaxLength(200);
             entity.Property(x => x.Priority).HasConversion<string>();
             entity.Property(x => x.Status).HasConversion<string>();
+            entity.Property(x => x.ResolutionNotes).HasMaxLength(2_000);
             entity.HasMany(x => x.Notes).WithOne().HasForeignKey(x => x.IncidentId);
+            entity.HasMany(x => x.Evidence).WithOne().HasForeignKey(x => x.IncidentId);
         });
 
         modelBuilder.Entity<IncidentNote>()
             .Property(x => x.Note)
             .HasMaxLength(2_000);
+
+        modelBuilder.Entity<IncidentEvidence>(entity =>
+        {
+            entity.Property(x => x.Title).HasMaxLength(160);
+            entity.Property(x => x.EvidenceType).HasMaxLength(80);
+            entity.Property(x => x.Reference).HasMaxLength(1_000);
+        });
 
         modelBuilder.Entity<Report>(entity =>
         {

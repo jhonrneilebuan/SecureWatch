@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Activity, Bell, Bug, FileBarChart, FileText, Globe, LayoutDashboard, LogOut, Mail, Menu, Settings, ShieldAlert, Upload, Users, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/button';
+import { api } from '../../api/client';
+import { Notification } from '../../types';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -18,11 +20,41 @@ const navItems = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
+const headerIconButtonClass = 'h-12 w-12 rounded-lg border border-slate-600 bg-slate-900/95 p-2 !text-white shadow-md shadow-slate-950/40 hover:border-primary hover:bg-primary/15 hover:!text-primary focus-visible:ring-primary/60';
+
 export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const visibleItems = navItems.filter((item) => !item.admin || user?.role === 'Admin');
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+
+  useEffect(() => {
+    let active = true;
+    const loadNotifications = () => {
+      api.get<Notification[]>('/notifications')
+        .then(({ data }) => {
+          if (active) setNotifications(data);
+        })
+        .catch(() => {
+          if (active) setNotifications([]);
+        });
+    };
+
+    loadNotifications();
+    const timer = window.setInterval(loadNotifications, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  async function markRead(id: string) {
+    await api.put(`/notifications/${id}/read`);
+    setNotifications((current) => current.map((item) => item.id === id ? { ...item, isRead: true } : item));
+  }
 
   return (
     <div className="min-h-screen bg-[#061018] text-slate-100">
@@ -129,6 +161,54 @@ export function AppLayout() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <div className="relative">
+              <Button
+                variant="ghost"
+                onClick={() => setNotificationsOpen((open) => !open)}
+                aria-label="Notifications"
+                title="Live Alerts"
+                className={`relative ${headerIconButtonClass}`}
+              >
+                <Bell size={24} strokeWidth={2.8} className="text-current" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-black text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </Button>
+              {notificationsOpen && (
+                <div className="absolute right-0 top-11 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-slate-800 bg-slate-950 shadow-2xl shadow-slate-950/60">
+                  <div className="border-b border-slate-800 px-4 py-3">
+                    <p className="text-sm font-bold text-slate-100">Live Alerts</p>
+                    <p className="text-xs text-slate-500">Latest in-app security notifications</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="px-4 py-6 text-center text-xs text-slate-500">No live alerts yet.</p>
+                    ) : notifications.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => markRead(item.id)}
+                        className={`block w-full border-b border-slate-900 px-4 py-3 text-left transition hover:bg-slate-900/70 ${item.isRead ? 'opacity-65' : 'bg-primary/5'}`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-bold text-slate-100">{item.title}</p>
+                          <span className={`rounded border px-1.5 py-0.5 text-[9px] font-black uppercase ${
+                            item.severity === 'Critical'
+                              ? 'border-red-900/60 bg-red-950/50 text-red-300'
+                              : 'border-yellow-900/60 bg-yellow-950/50 text-yellow-300'
+                          }`}>
+                            {item.severity}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-400">{item.message}</p>
+                        <p className="mt-2 text-[10px] font-semibold text-slate-600">{new Date(item.createdAt).toLocaleString()}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium">{user?.fullName}</p>
               <p className="text-xs text-slate-500">{user?.role}</p>
@@ -140,9 +220,10 @@ export function AppLayout() {
                 navigate('/login');
               }}
               aria-label="Logout"
-              className="p-2 h-9 w-9 rounded-lg"
+              title="Logout"
+              className={headerIconButtonClass}
             >
-              <LogOut size={16} />
+              <LogOut size={24} strokeWidth={2.8} className="text-current" />
             </Button>
           </div>
         </header>

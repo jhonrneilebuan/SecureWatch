@@ -46,6 +46,7 @@ public sealed class LogAnalysisService(
 
         if (result.ThreatDetected)
         {
+            var mitre = MitreMapper.Map(result.ThreatType);
             var threat = new Threat
             {
                 Id = Guid.NewGuid(),
@@ -56,7 +57,9 @@ public sealed class LogAnalysisService(
                 FailedAttempts = result.FailedAttempts,
                 RiskScore = result.RiskScore,
                 Description = result.Description ?? "Potentially malicious behavior was detected in the uploaded log.",
-                Recommendation = result.Recommendation ?? "Review affected accounts, rotate credentials, and verify host activity."
+                Recommendation = result.Recommendation ?? "Review affected accounts, rotate credentials, and verify host activity.",
+                MitreTechniqueId = result.MitreTechniqueId ?? mitre.Id,
+                MitreTechniqueName = result.MitreTechniqueName ?? mitre.Name
             };
 
             var ai = await aiRecommendationService.GenerateAsync(new AiRecommendationRequest(
@@ -99,6 +102,15 @@ public sealed class LogAnalysisService(
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Action = "Threat detected",
+                EntityType = nameof(Threat),
+                EntityId = threat.Id
+            }, cancellationToken);
+            await dbContext.Notifications.AddAsync(new Notification
+            {
+                Id = Guid.NewGuid(),
+                Title = $"{threat.Severity} threat detected",
+                Message = $"{threat.ThreatType} from {threat.SourceIP} mapped to MITRE {threat.MitreTechniqueId}.",
+                Severity = threat.Severity is ThreatSeverity.Critical ? NotificationSeverity.Critical : NotificationSeverity.Warning,
                 EntityType = nameof(Threat),
                 EntityId = threat.Id
             }, cancellationToken);

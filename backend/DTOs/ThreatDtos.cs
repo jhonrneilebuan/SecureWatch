@@ -10,6 +10,8 @@ public sealed record ThreatDto(
     int RiskScore,
     string Description,
     string Recommendation,
+    string MitreTechniqueId,
+    string MitreTechniqueName,
     string? AiExplanation,
     string? AiImpact,
     string? AiPreventionSteps,
@@ -24,8 +26,26 @@ public sealed record SecurityEngineResult(
     int SuccessfulLogins,
     int RiskScore,
     IReadOnlyCollection<string>? TopSourceIps,
+    string? MitreTechniqueId,
+    string? MitreTechniqueName,
     string? Description,
     string? Recommendation);
+
+public sealed record IngestSecurityEventRequest(
+    string SourceSystem,
+    string EventType,
+    string SourceIp,
+    string? Username,
+    string? Route,
+    int Count,
+    string? Message,
+    DateTimeOffset? OccurredAt);
+
+public sealed record IngestSecurityEventResponse(
+    bool ThreatDetected,
+    Guid? ThreatId,
+    Guid? IncidentId,
+    string Message);
 
 public sealed record AiRecommendationRequest(
     string ThreatType,

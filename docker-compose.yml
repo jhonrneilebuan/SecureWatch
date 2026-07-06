@@ -38,8 +38,13 @@ services:
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env}
       Jwt__ExpiresMinutes: ${JWT_EXPIRES_MINUTES:-120}
       Jwt__RefreshTokenDays: ${JWT_REFRESH_TOKEN_DAYS:-7}
+      Frontend__AllowedOrigins__0: ${FRONTEND_ALLOWED_ORIGINS:-http://localhost:3000}
+      Security__UseHttpsRedirection: ${USE_HTTPS_REDIRECTION:-false}
       SecurityEngine__BaseUrl: http://security-engine:8000
       AbuseIPDB__ApiKey: ${ABUSEIPDB_API_KEY:-}
+      VirusTotal__ApiKey: ${VIRUSTOTAL_API_KEY:-}
+      Shodan__ApiKey: ${SHODAN_API_KEY:-}
+      Otx__ApiKey: ${OTX_API_KEY:-}
       Nvd__ApiKey: ${NVD_API_KEY:-}
       OpenAI__ApiKey: ${OPENAI_API_KEY:-}
       OpenAI__Model: ${OPENAI_MODEL:-gpt-4o-mini}

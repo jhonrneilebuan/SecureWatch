@@ -11,6 +11,8 @@ interface UserRow {
   email: string;
   role: string;
   isActive: boolean;
+  failedLoginCount: number;
+  lockedUntil?: string;
   createdAt: string;
 }
 
@@ -47,6 +49,12 @@ export function UserManagement() {
 
     setError('');
     await api.delete(`/users/${user.id}`);
+    await reload();
+  }
+
+  async function unlockUser(user: UserRow) {
+    setError('');
+    await api.post(`/users/${user.id}/unlock`);
     await reload();
   }
 
@@ -122,6 +130,7 @@ export function UserManagement() {
                 <th className="px-4">Email</th>
                 <th className="px-4">Role</th>
                 <th className="hidden sm:table-cell px-4">Status</th>
+                <th className="hidden lg:table-cell px-4">Lockout</th>
                 <th className="hidden md:table-cell px-4">Created</th>
                 <th className="px-4 text-right">Actions</th>
               </tr>
@@ -151,6 +160,15 @@ export function UserManagement() {
                       {user.isActive ? 'Active' : 'Disabled'}
                     </span>
                   </td>
+                  <td className="hidden lg:table-cell px-4">
+                    {user.lockedUntil && new Date(user.lockedUntil) > new Date() ? (
+                      <span className="text-[10px] font-bold text-red-400">
+                        Locked until {new Date(user.lockedUntil).toLocaleTimeString()}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-500">{user.failedLoginCount} failed</span>
+                    )}
+                  </td>
                   <td className="hidden md:table-cell px-4 text-xs text-slate-500 font-medium">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
@@ -158,6 +176,9 @@ export function UserManagement() {
                     <div className="flex gap-1.5 justify-end">
                       <Button variant="ghost" onClick={() => toggle(user)} className="h-8 px-2 text-[11px] font-semibold">
                         {user.isActive ? 'Disable' : 'Enable'}
+                      </Button>
+                      <Button variant="ghost" onClick={() => unlockUser(user)} className="h-8 px-2 text-[11px] font-semibold">
+                        Unlock
                       </Button>
                       <Button variant="ghost" onClick={() => deleteUser(user)} className="h-8 px-2 text-[11px] font-semibold hover:bg-red-900/20 hover:text-red-400 hover:border-danger/30">
                         Delete

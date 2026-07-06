@@ -27,6 +27,14 @@ export interface DashboardSummary {
   incidentStatus: { status: string; count: number }[];
 }
 
+export interface PagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 export interface Threat {
   id: string;
   securityLogId?: string;
@@ -37,6 +45,8 @@ export interface Threat {
   riskScore: number;
   description: string;
   recommendation: string;
+  mitreTechniqueId?: string;
+  mitreTechniqueName?: string;
   aiExplanation?: string;
   aiImpact?: string;
   aiPreventionSteps?: string;
@@ -51,6 +61,7 @@ export interface Incident {
   priority: string;
   status: string;
   assignedTo?: string;
+  resolutionNotes: string;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
@@ -66,10 +77,24 @@ export interface EmailAlert {
   createdAt: string;
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  severity: string;
+  entityType: string;
+  entityId?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface SystemStatus {
   smtpConfigured: boolean;
   openAiConfigured: boolean;
   abuseIpDbConfigured: boolean;
+  virusTotalConfigured: boolean;
+  shodanConfigured: boolean;
+  otxConfigured: boolean;
   nvdConfigured: boolean;
   failedLoginLockoutThreshold: number;
   recentEmailAlerts: number;

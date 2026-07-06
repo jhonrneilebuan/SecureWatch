@@ -7,13 +7,16 @@ SecureWatch is an AI-powered security monitoring dashboard for IT administrators
 - JWT login, registration, refresh tokens, logout, and protected routes
 - Admin and Analyst role-based authorization
 - Admin user management with create, role edit, active/disabled status, and delete confirmation
+- Admin account unlock for lockout recovery
 - Actual SecureWatch login failed-attempt detection with threat creation, incident creation, SMTP alerting, and account lockout
 - Log upload for `.log`, `.txt`, and `.csv` files
-- Python FastAPI detection for brute force, failed logins, repeated IPs, successful logins, sensitive route access, and suspicious IP activity
+- Python FastAPI detection for brute force, failed logins, repeated IPs, SQL injection, suspicious admin access, privilege escalation, impossible travel, and suspicious IP activity
+- MITRE ATT&CK mapping on detected threats
 - Risk scoring: Low, Medium, High, Critical
 - Automatic incident creation for High/Critical threats
-- Incident assignment, status updates, notes, and resolution
-- AbuseIPDB-ready IP reputation lookup through backend-only API keys
+- Incident assignment, status updates, notes, evidence references, timeline, and resolution notes
+- Live in-app notifications for newly detected threats
+- AbuseIPDB-ready IP reputation lookup through backend-only API keys, with optional VirusTotal/Shodan/AlienVault OTX readiness checks
 - NVD CVE lookup by keyword/software name
 - OpenAI-ready AI recommendation service with local fallback guidance
 - SMTP alert service and frontend email alert history for High/Critical threats
@@ -90,12 +93,17 @@ Create or edit `.env` in the project root:
 
 ```text
 ABUSEIPDB_API_KEY=
+VIRUSTOTAL_API_KEY=
+SHODAN_API_KEY=
+OTX_API_KEY=
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 NVD_API_KEY=
 JWT_KEY=replace_with_a_long_random_jwt_secret_at_least_32_characters
 JWT_EXPIRES_MINUTES=120
 JWT_REFRESH_TOKEN_DAYS=7
+FRONTEND_ALLOWED_ORIGINS=http://localhost:3000
+USE_HTTPS_REDIRECTION=false
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
@@ -124,6 +132,9 @@ SecureWatch@123
 3. Open Dashboard and confirm cards/charts update.
 4. Open Threat Analysis and review risk score/recommendations.
 5. Open Incidents and resolve the auto-created incident.
+   - Add an analyst note.
+   - Add an evidence reference.
+   - Add resolution notes before marking it resolved.
 6. Open IP Reputation and check an IP.
 7. Open CVE Lookup and search a product keyword.
 8. Open Reports and export the PDF summary.
@@ -136,7 +147,7 @@ SecureWatch@123
 2. Open `http://localhost:3000/login`.
 3. Enter `admin@securewatch.com` with the wrong password 5 times within 15 minutes.
 4. The backend records failed login attempts, creates a `SecureWatch Login Brute Force` threat, opens an incident, sends SMTP if configured, and locks the account for 15 minutes.
-5. Login again after the lock expires, or use another seeded/admin account during testing.
+5. Login again after the lock expires, or use User Management as another admin and click `Unlock`.
 
 ## SMTP Alert Test
 
@@ -183,6 +194,10 @@ python -m pytest tests
 - `POST /api/incidents`
 - `PUT /api/incidents/{id}`
 - `POST /api/incidents/{id}/notes`
+- `POST /api/incidents/{id}/evidence`
+- `POST /api/incidents/{id}/evidence-file`
+- `GET /api/notifications`
+- `PUT /api/notifications/{id}/read`
 - `GET /api/lookups/ip/{ipAddress}`
 - `GET /api/lookups/cve?query=openssl`
 - `GET /api/reports/security-summary.pdf`
@@ -192,7 +207,12 @@ python -m pytest tests
 - `GET /api/users`
 - `POST /api/users`
 - `PUT /api/users/{id}`
+- `POST /api/users/{id}/unlock`
 - `DELETE /api/users/{id}`
+
+## Deployment
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, cloud hosting, HTTPS, CORS, and production-secret notes.
 
 ## Screenshots
 

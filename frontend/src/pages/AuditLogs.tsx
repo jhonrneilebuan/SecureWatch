@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { PagedResult } from '../types';
 
 interface AuditLog {
   id: string;
@@ -18,20 +19,30 @@ export function AuditLogs() {
   const [query, setQuery] = useState('');
   const [action, setAction] = useState('');
   const [date, setDate] = useState('');
-  useEffect(() => { api.get<AuditLog[]>('/auditlogs').then(({ data }) => setLogs(data)).catch(() => setLogs([])); }, []);
+  const [totalCount, setTotalCount] = useState(0);
+  useEffect(() => {
+    api.get<PagedResult<AuditLog>>('/auditlogs', {
+      params: {
+        search: query || undefined,
+        action: action || undefined,
+        date: date || undefined,
+        pageSize: 50,
+      },
+    }).then(({ data }) => {
+      setLogs(data.items);
+      setTotalCount(data.totalCount);
+    }).catch(() => {
+      setLogs([]);
+      setTotalCount(0);
+    });
+  }, [query, action, date]);
   const actions = Array.from(new Set(logs.map((log) => log.action))).sort();
-  const filtered = logs.filter((log) => {
-    const matchesText = `${log.action} ${log.entityType} ${log.ipAddress} ${log.userId}`.toLowerCase().includes(query.toLowerCase());
-    const matchesAction = !action || log.action === action;
-    const matchesDate = !date || new Date(log.timestamp).toISOString().startsWith(date);
-    return matchesText && matchesAction && matchesDate;
-  });
 
   return (
     <Card>
       <div className="mb-6">
         <h2 className="text-xl font-bold">System Audit Logs</h2>
-        <p className="text-xs text-slate-500">Track and review administrative and operational actions logged across the console.</p>
+        <p className="text-xs text-slate-500">Track and review administrative and operational actions logged across the console. Showing {logs.length} of {totalCount} records.</p>
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         <Input
@@ -73,7 +84,7 @@ export function AuditLogs() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/50">
-            {filtered.map((log) => (
+            {logs.map((log) => (
               <tr key={log.id} className="hover:bg-slate-900/10 transition-all duration-150">
                 <td className="py-3.5 px-4 font-semibold text-slate-200">{log.action}</td>
                 <td className="hidden sm:table-cell px-4 text-slate-400">{log.entityType}</td>
@@ -83,7 +94,7 @@ export function AuditLogs() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {logs.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-8 text-center text-slate-500 text-xs">
                   No matching audit logs found.

@@ -16,7 +16,7 @@ public sealed class UsersController(AppDbContext dbContext, IPasswordHasher pass
 {
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
-        Ok(await dbContext.Users.AsNoTracking().Select(x => new UserDto(x.Id, x.FullName, x.Email, x.Role, x.IsActive, x.CreatedAt)).ToListAsync(cancellationToken));
+        Ok(await dbContext.Users.AsNoTracking().Select(x => new UserDto(x.Id, x.FullName, x.Email, x.Role, x.IsActive, x.FailedLoginCount, x.LockedUntil, x.CreatedAt)).ToListAsync(cancellationToken));
 
     [HttpPost]
     public async Task<IActionResult> Create(CreateUserRequest request, CancellationToken cancellationToken)
@@ -41,7 +41,7 @@ public sealed class UsersController(AppDbContext dbContext, IPasswordHasher pass
         await dbContext.Users.AddAsync(user, cancellationToken);
         await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = CurrentUserId(), Action = "User created", EntityType = nameof(User), EntityId = user.Id }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return CreatedAtAction(nameof(GetAll), new UserDto(user.Id, user.FullName, user.Email, user.Role, user.IsActive, user.CreatedAt));
+        return CreatedAtAction(nameof(GetAll), new UserDto(user.Id, user.FullName, user.Email, user.Role, user.IsActive, user.FailedLoginCount, user.LockedUntil, user.CreatedAt));
     }
 
     [HttpPut("{id:guid}")]
@@ -58,7 +58,24 @@ public sealed class UsersController(AppDbContext dbContext, IPasswordHasher pass
         user.IsActive = request.IsActive;
         await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = CurrentUserId(), Action = "User updated or role changed", EntityType = nameof(User), EntityId = user.Id }, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return Ok(new UserDto(user.Id, user.FullName, user.Email, user.Role, user.IsActive, user.CreatedAt));
+        return Ok(new UserDto(user.Id, user.FullName, user.Email, user.Role, user.IsActive, user.FailedLoginCount, user.LockedUntil, user.CreatedAt));
+    }
+
+    [HttpPost("{id:guid}/unlock")]
+    public async Task<IActionResult> Unlock(Guid id, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users.FindAsync([id], cancellationToken);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+        user.IsActive = true;
+        await dbContext.AuditLogs.AddAsync(new AuditLog { Id = Guid.NewGuid(), UserId = CurrentUserId(), Action = "User account unlocked", EntityType = nameof(User), EntityId = user.Id }, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(new UserDto(user.Id, user.FullName, user.Email, user.Role, user.IsActive, user.FailedLoginCount, user.LockedUntil, user.CreatedAt));
     }
 
     [HttpDelete("{id:guid}")]

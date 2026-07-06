@@ -45,6 +45,9 @@ export function Settings() {
           <StatusRow label="SMTP Email Alert Gateway" ok={status.smtpConfigured} />
           <StatusRow label="OpenAI GPT Recommendations Engine" ok={status.openAiConfigured} />
           <StatusRow label="AbuseIPDB Threat Intelligence API" ok={status.abuseIpDbConfigured} />
+          <StatusRow label="VirusTotal Threat Intelligence API" ok={status.virusTotalConfigured} />
+          <StatusRow label="Shodan Internet Exposure API" ok={status.shodanConfigured} />
+          <StatusRow label="AlienVault OTX Threat Intelligence API" ok={status.otxConfigured} />
           <StatusRow label="NVD Vulnerability Database API" ok={status.nvdConfigured} />
         </div>
       </Card>

@@ -19,6 +19,8 @@ public sealed class Threat
     public int RiskScore { get; set; }
     public string Description { get; set; } = string.Empty;
     public string Recommendation { get; set; } = string.Empty;
+    public string MitreTechniqueId { get; set; } = string.Empty;
+    public string MitreTechniqueName { get; set; } = string.Empty;
     public string? AiExplanation { get; set; }
     public string? AiImpact { get; set; }
     public string? AiPreventionSteps { get; set; }

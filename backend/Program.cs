@@ -79,12 +79,20 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+    {
+        var allowedOrigins = builder.Configuration.GetSection("Frontend:AllowedOrigins").Get<string[]>()
+            ?? ["http://localhost:3000", "http://localhost:5173"];
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+    });
 });
 
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+if (builder.Configuration.GetValue("Security:UseHttpsRedirection", false))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -109,12 +117,17 @@ static void LoadLocalDotEnv(ConfigurationManager configuration, IWebHostEnvironm
     var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["ABUSEIPDB_API_KEY"] = "AbuseIPDB:ApiKey",
+        ["VIRUSTOTAL_API_KEY"] = "VirusTotal:ApiKey",
+        ["SHODAN_API_KEY"] = "Shodan:ApiKey",
+        ["OTX_API_KEY"] = "Otx:ApiKey",
         ["NVD_API_KEY"] = "Nvd:ApiKey",
         ["OPENAI_API_KEY"] = "OpenAI:ApiKey",
         ["OPENAI_MODEL"] = "OpenAI:Model",
         ["JWT_KEY"] = "Jwt:Key",
         ["JWT_EXPIRES_MINUTES"] = "Jwt:ExpiresMinutes",
         ["JWT_REFRESH_TOKEN_DAYS"] = "Jwt:RefreshTokenDays",
+        ["FRONTEND_ALLOWED_ORIGINS"] = "Frontend:AllowedOrigins:0",
+        ["USE_HTTPS_REDIRECTION"] = "Security:UseHttpsRedirection",
         ["SMTP_HOST"] = "Smtp:Host",
         ["SMTP_PORT"] = "Smtp:Port",
         ["SMTP_USERNAME"] = "Smtp:Username",

@@ -25,8 +25,10 @@ public sealed class Incident
     public IncidentPriority Priority { get; set; }
     public IncidentStatus Status { get; set; } = IncidentStatus.Open;
     public Guid? AssignedTo { get; set; }
+    public string ResolutionNotes { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ResolvedAt { get; set; }
     public ICollection<IncidentNote> Notes { get; set; } = [];
+    public ICollection<IncidentEvidence> Evidence { get; set; } = [];
 }

@@ -1,11 +1,27 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, FileText, Radar, ShieldCheck, TrendingUp } from 'lucide-react';
+import { AlertTriangle, FileText, MapPin, Radar, ShieldCheck, TrendingUp } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api/client';
 import { Card } from '../components/ui/card';
-import { DashboardSummary, Incident } from '../types';
+import { DashboardSummary, Incident, PagedResult } from '../types';
 
 const colors = ['#34d399', '#f59e0b', '#fb7185', '#a855f7'];
+
+const countryCoordinates: Record<string, { x: number; y: number; label: string }> = {
+  US: { x: 24, y: 43, label: 'United States' },
+  CA: { x: 22, y: 31, label: 'Canada' },
+  BR: { x: 38, y: 68, label: 'Brazil' },
+  GB: { x: 47, y: 34, label: 'United Kingdom' },
+  DE: { x: 51, y: 37, label: 'Germany' },
+  FR: { x: 49, y: 41, label: 'France' },
+  NL: { x: 49, y: 36, label: 'Netherlands' },
+  RU: { x: 66, y: 32, label: 'Russia' },
+  CN: { x: 73, y: 47, label: 'China' },
+  JP: { x: 83, y: 49, label: 'Japan' },
+  IN: { x: 68, y: 55, label: 'India' },
+  SG: { x: 73, y: 68, label: 'Singapore' },
+  AU: { x: 80, y: 78, label: 'Australia' },
+};
 
 export function Dashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -15,11 +31,11 @@ export function Dashboard() {
   useEffect(() => {
     Promise.all([
       api.get<DashboardSummary>('/dashboard/summary'),
-      api.get<Incident[]>('/incidents'),
+      api.get<PagedResult<Incident>>('/incidents', { params: { pageSize: 5 } }),
     ])
       .then(([summaryResponse, incidentsResponse]) => {
         setSummary(summaryResponse.data);
-        setIncidents(incidentsResponse.data.slice(0, 5));
+        setIncidents(incidentsResponse.data.items);
       })
       .catch(() => setError('Unable to load dashboard metrics.'));
   }, []);
@@ -48,6 +64,23 @@ export function Dashboard() {
     { label: 'Malicious IPs', value: summary.maliciousIps, icon: Radar },
     { label: 'Failed Logins', value: summary.failedLoginAttempts, icon: AlertTriangle },
   ];
+  const maxCountryHits = Math.max(...summary.topCountries.map((item) => item.count), 1);
+  const maxIspHits = Math.max(...summary.topIsps.map((item) => item.count), 1);
+  const targetNode = { x: 50, y: 48, label: 'SecureWatch SOC' };
+  const countryMarkers = summary.topCountries.map((item, index) => {
+    const key = item.name.toUpperCase();
+    const mapped = countryCoordinates[key] ?? {
+      x: 18 + ((index * 17) % 66),
+      y: 28 + ((index * 13) % 46),
+      label: item.name,
+    };
+    return { ...item, ...mapped, code: key };
+  });
+  const threatRoutes = countryMarkers.map((item, index) => ({
+    ...item,
+    delay: `${index * 0.75}s`,
+    width: Math.max(1.5, Math.min(4, 1 + item.count / maxCountryHits * 3)),
+  }));
 
   return (
     <div className="space-y-6">
@@ -177,34 +210,175 @@ export function Dashboard() {
         </Card>
       </section>
 
-      {/* Geolocation and ISP lists */}
-      <section className="grid gap-5 md:grid-cols-2">
-        <Card>
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">Top Attack Origin Countries</h2>
-          {summary.topCountries.length === 0 ? (
-            <p className="text-xs text-slate-500 py-6 text-center">No geolocation country data logged yet.</p>
+      {/* Geolocation map and ISP rankings */}
+      <section className="grid gap-5 xl:grid-cols-5">
+        <Card className="xl:col-span-3 overflow-hidden">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Global Attack Origin Map</h2>
+              <p className="mt-1 text-xs text-slate-600">Country markers are based on IP reputation geolocation results.</p>
+            </div>
+            <span className="rounded border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase text-primary">
+              {summary.topCountries.reduce((total, item) => total + item.count, 0)} geo hits
+            </span>
+          </div>
+
+          {countryMarkers.length === 0 ? (
+            <p className="text-xs text-slate-500 py-12 text-center">No geolocation country data logged yet.</p>
           ) : (
-            <div className="space-y-2">
-              {summary.topCountries.map((item) => (
-                <div key={item.name} className="flex items-center justify-between border-b border-slate-800/40 pb-2 text-sm">
-                  <span className="text-slate-300 font-semibold">{item.name}</span>
-                  <span className="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 font-bold">{item.count} hits</span>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem]">
+              <div className="relative h-80 overflow-hidden rounded-xl border border-cyan-900/50 bg-[#041019] shadow-inner shadow-cyan-950/60">
+                <div className="absolute inset-0 opacity-55 [background-image:linear-gradient(rgba(34,211,238,.16)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,.16)_1px,transparent_1px)] [background-size:38px_38px]" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(20,184,166,.18),transparent_28%),radial-gradient(circle_at_18%_34%,rgba(244,63,94,.10),transparent_18%),radial-gradient(circle_at_70%_40%,rgba(34,211,238,.10),transparent_24%)]" />
+                <div className="absolute left-[10%] top-[22%] h-24 w-36 rounded-[45%] border border-cyan-800/50 bg-cyan-950/10" />
+                <div className="absolute left-[38%] top-[20%] h-28 w-32 rounded-[42%] border border-cyan-800/50 bg-cyan-950/10" />
+                <div className="absolute left-[56%] top-[28%] h-24 w-48 rounded-[45%] border border-cyan-800/50 bg-cyan-950/10" />
+                <div className="absolute left-[70%] top-[68%] h-16 w-24 rounded-[45%] border border-cyan-800/50 bg-cyan-950/10" />
+                <div className="absolute left-1/2 top-1/2 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-800/25" />
+                <div className="absolute left-1/2 top-1/2 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-800/25" />
+                <div className="absolute left-1/2 top-1/2 h-[14rem] w-[14rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-800/25" />
+                <div className="absolute left-1/2 top-1/2 h-[24rem] w-[24rem] origin-center -translate-x-1/2 -translate-y-1/2 animate-spin rounded-full border-t border-cyan-400/40" style={{ animationDuration: '10s' }} />
+
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="attackRoute" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#fb7185" stopOpacity="0.08" />
+                      <stop offset="50%" stopColor="#22d3ee" stopOpacity="0.95" />
+                      <stop offset="100%" stopColor="#34d399" stopOpacity="0.15" />
+                    </linearGradient>
+                    <filter id="routeGlow">
+                      <feGaussianBlur stdDeviation="0.75" result="coloredBlur" />
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  {threatRoutes.map((route) => {
+                    const midX = (route.x + targetNode.x) / 2;
+                    const midY = Math.min(route.y, targetNode.y) - 16;
+                    return (
+                      <path
+                        key={`${route.code}-route`}
+                        d={`M ${route.x} ${route.y} Q ${midX} ${midY} ${targetNode.x} ${targetNode.y}`}
+                        fill="none"
+                        stroke="url(#attackRoute)"
+                        strokeWidth={route.width}
+                        strokeDasharray="3 5"
+                        strokeLinecap="round"
+                        filter="url(#routeGlow)"
+                        opacity="0.9"
+                        style={{
+                          animation: `dashFlow 2.8s linear infinite`,
+                          animationDelay: route.delay,
+                        }}
+                      />
+                    );
+                  })}
+                </svg>
+
+                <div
+                  className="absolute -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${targetNode.x}%`, top: `${targetNode.y}%` }}
+                  title={targetNode.label}
+                >
+                  <span className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-primary/15" />
+                  <span className="relative flex h-14 w-14 items-center justify-center rounded-full border border-primary bg-slate-950 text-primary shadow-xl shadow-primary/20">
+                    <Radar size={24} />
+                  </span>
+                  <span className="absolute left-1/2 top-16 -translate-x-1/2 whitespace-nowrap rounded border border-primary/30 bg-slate-950/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary">
+                    SOC Core
+                  </span>
                 </div>
-              ))}
+
+                {countryMarkers.map((item) => {
+                  const size = 14 + Math.round((item.count / maxCountryHits) * 18);
+                  const critical = item.count === maxCountryHits;
+                  return (
+                    <div
+                      key={item.code}
+                      className="absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: `${item.x}%`, top: `${item.y}%` }}
+                      title={`${item.label}: ${item.count} hits`}
+                    >
+                      <span className={`absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full ${critical ? 'bg-danger/25' : 'bg-cyan-400/20'}`} />
+                      <span
+                        className={`relative flex items-center justify-center rounded-full border text-[10px] font-black shadow-lg ${
+                          critical
+                            ? 'border-danger bg-danger/90 text-white shadow-danger/25'
+                            : 'border-cyan-300/80 bg-cyan-400/90 text-slate-950 shadow-cyan-400/20'
+                        }`}
+                        style={{ width: size, height: size }}
+                      >
+                        {item.code}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-cyan-900/60 bg-slate-950/80 px-3 py-2 backdrop-blur">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" />
+                    Live threat visualization
+                  </div>
+                  <div className="text-[10px] font-semibold text-slate-500">Animated from latest reputation telemetry</div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="rounded-lg border border-cyan-900/50 bg-slate-950/50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-cyan-300">Recent Attack Routes</p>
+                </div>
+                {countryMarkers.map((item) => (
+                  <div key={item.code} className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <MapPin size={14} className="shrink-0 text-primary" />
+                        <span className="truncate text-sm font-bold text-slate-200">{item.label}</span>
+                      </div>
+                      <span className="shrink-0 text-xs font-black text-slate-100">{item.count}</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                      <span>{item.code}</span>
+                      <span className="h-px flex-1 bg-slate-800" />
+                      <span>SOC Core</span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-900">
+                      <div className="h-full rounded-full bg-gradient-to-r from-danger via-cyan-400 to-primary" style={{ width: `${Math.max(8, (item.count / maxCountryHits) * 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </Card>
 
-        <Card>
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">Top Threat ISPs</h2>
+        <Card className="xl:col-span-2">
+          <div className="mb-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Top Threat ISPs</h2>
+            <p className="mt-1 text-xs text-slate-600">Ranked networks observed during IP reputation checks.</p>
+          </div>
           {summary.topIsps.length === 0 ? (
-            <p className="text-xs text-slate-500 py-6 text-center">No IP reputation ISP data logged yet.</p>
+            <p className="text-xs text-slate-500 py-12 text-center">No IP reputation ISP data logged yet.</p>
           ) : (
-            <div className="space-y-2">
-              {summary.topIsps.map((item) => (
-                <div key={item.name} className="flex items-center justify-between gap-4 border-b border-slate-800/40 pb-2 text-sm">
-                  <span className="truncate text-slate-300 font-semibold">{item.name}</span>
-                  <span className="text-xs bg-slate-900 px-2 py-0.5 rounded text-slate-400 font-bold shrink-0">{item.count} hits</span>
+            <div className="space-y-3">
+              {summary.topIsps.map((item, index) => (
+                <div key={item.name} className="rounded-lg border border-slate-800 bg-slate-950/35 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-slate-800 bg-slate-900 text-xs font-black text-primary">
+                        {index + 1}
+                      </span>
+                      <span className="truncate text-sm font-bold text-slate-200">{item.name}</span>
+                    </div>
+                    <span className="shrink-0 rounded bg-slate-900 px-2 py-0.5 text-xs font-bold text-slate-300">{item.count} hits</span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-900">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400"
+                      style={{ width: `${Math.max(8, (item.count / maxIspHits) * 100)}%` }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>

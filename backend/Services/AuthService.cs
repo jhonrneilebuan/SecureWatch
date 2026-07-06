@@ -186,6 +186,8 @@ public sealed class AuthService(
                     RiskScore = 90,
                     Description = $"{recentFailures} failed SecureWatch login attempts were detected for {email} from {ipAddress}.",
                     Recommendation = ai.RecommendedActions,
+                    MitreTechniqueId = "T1110",
+                    MitreTechniqueName = "Brute Force",
                     AiExplanation = ai.ThreatExplanation,
                     AiImpact = ai.PossibleImpact,
                     AiPreventionSteps = ai.PreventionSteps
@@ -211,6 +213,15 @@ public sealed class AuthService(
                     EntityType = nameof(Threat),
                     EntityId = threat.Id,
                     IpAddress = ipAddress
+                }, cancellationToken);
+                await dbContext.Notifications.AddAsync(new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "High SecureWatch login brute force",
+                    Message = $"{recentFailures} failed login attempts from {ipAddress} mapped to MITRE T1110.",
+                    Severity = NotificationSeverity.Warning,
+                    EntityType = nameof(Threat),
+                    EntityId = threat.Id
                 }, cancellationToken);
                 await emailAlertService.SendThreatAlertAsync(threat, incident, cancellationToken);
             }

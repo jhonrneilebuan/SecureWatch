@@ -2,6 +2,7 @@
 **/obj/
 **/dist/
 **/verify-build/
+**/App_Data/
 **/node_modules/
 **/__pycache__/
 **/.pytest-packages/

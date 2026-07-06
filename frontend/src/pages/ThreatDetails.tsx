@@ -28,9 +28,10 @@ export function ThreatDetails() {
     );
   }
 
-  const isCritical = threat.riskScore >= 80 || threat.severity === 'CRITICAL';
-  const isHigh = threat.severity === 'HIGH';
-  const isMedium = threat.severity === 'MEDIUM';
+  const severity = threat.severity.toLowerCase();
+  const isCritical = threat.riskScore >= 80 || severity === 'critical';
+  const isHigh = severity === 'high';
+  const isMedium = severity === 'medium';
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -98,7 +99,15 @@ export function ThreatDetails() {
 
           <div className="rounded-xl bg-slate-900/40 border border-slate-800/40 p-4">
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Attack Severity</p>
-            <p className="mt-2 text-md font-bold text-slate-200 capitalize">{threat.severity.toLowerCase()}</p>
+            <p className="mt-2 text-md font-bold text-slate-200 capitalize">{severity}</p>
+          </div>
+
+          <div className="rounded-xl bg-slate-900/40 border border-slate-800/40 p-4 sm:col-span-2 md:col-span-4">
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">MITRE ATT&CK Mapping</p>
+            <p className="mt-2 text-sm font-bold text-slate-200">
+              <span className="font-mono text-primary">{threat.mitreTechniqueId || 'Unmapped'}</span>
+              {threat.mitreTechniqueName && <span className="ml-2 text-slate-400">{threat.mitreTechniqueName}</span>}
+            </p>
           </div>
         </div>
 

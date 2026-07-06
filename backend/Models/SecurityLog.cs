@@ -14,6 +14,8 @@ public sealed class SecurityLog
     public string FileName { get; set; } = string.Empty;
     public long FileSize { get; set; }
     public string ContentType { get; set; } = string.Empty;
+    public string SourceSystem { get; set; } = "Manual Upload";
+    public string SourceType { get; set; } = "File";
     public Guid UploadedBy { get; set; }
     public DateTimeOffset UploadedAt { get; set; } = DateTimeOffset.UtcNow;
     public SecurityLogStatus Status { get; set; } = SecurityLogStatus.Uploaded;

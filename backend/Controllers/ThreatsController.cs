@@ -12,15 +12,34 @@ namespace SecureWatch.Api.Controllers;
 public sealed class ThreatsController(AppDbContext dbContext) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyCollection<ThreatDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedResult<ThreatDto>>> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] string? severity,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
-        var threats = await dbContext.Threats
-            .AsNoTracking()
-            .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new ThreatDto(x.Id, x.SecurityLogId, x.ThreatType, x.Severity.ToString(), x.SourceIP, x.FailedAttempts, x.RiskScore, x.Description, x.Recommendation, x.AiExplanation, x.AiImpact, x.AiPreventionSteps, x.CreatedAt))
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 5, 100);
+        var query = dbContext.Threats.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(x => x.ThreatType.Contains(search) || x.SourceIP.Contains(search) || x.Description.Contains(search));
+        }
+
+        if (Enum.TryParse<SecureWatch.Api.Models.ThreatSeverity>(severity, true, out var parsedSeverity))
+        {
+            query = query.Where(x => x.Severity == parsedSeverity);
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var threats = await query.OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new ThreatDto(x.Id, x.SecurityLogId, x.ThreatType, x.Severity.ToString(), x.SourceIP, x.FailedAttempts, x.RiskScore, x.Description, x.Recommendation, x.MitreTechniqueId, x.MitreTechniqueName, x.AiExplanation, x.AiImpact, x.AiPreventionSteps, x.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return Ok(threats);
+        return Ok(new PagedResult<ThreatDto>(threats, page, pageSize, total, (int)Math.Ceiling(total / (double)pageSize)));
     }
 
     [HttpGet("{id:guid}")]
@@ -32,6 +51,6 @@ public sealed class ThreatsController(AppDbContext dbContext) : ControllerBase
             return NotFound();
         }
 
-        return Ok(new ThreatDto(threat.Id, threat.SecurityLogId, threat.ThreatType, threat.Severity.ToString(), threat.SourceIP, threat.FailedAttempts, threat.RiskScore, threat.Description, threat.Recommendation, threat.AiExplanation, threat.AiImpact, threat.AiPreventionSteps, threat.CreatedAt));
+        return Ok(new ThreatDto(threat.Id, threat.SecurityLogId, threat.ThreatType, threat.Severity.ToString(), threat.SourceIP, threat.FailedAttempts, threat.RiskScore, threat.Description, threat.Recommendation, threat.MitreTechniqueId, threat.MitreTechniqueName, threat.AiExplanation, threat.AiImpact, threat.AiPreventionSteps, threat.CreatedAt));
     }
 }

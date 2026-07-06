@@ -63,7 +63,10 @@ public sealed class IpReputationService(AppDbContext dbContext, IHttpClientFacto
                     entity.CountryCode = data.TryGetProperty("countryCode", out var country) ? country.GetString() ?? string.Empty : string.Empty;
                     entity.Isp = data.TryGetProperty("isp", out var isp) ? isp.GetString() ?? string.Empty : string.Empty;
                     entity.TotalReports = data.TryGetProperty("totalReports", out var reports) ? reports.GetInt32() : 0;
-                    entity.IsMalicious = entity.AbuseConfidenceScore >= 75 || entity.TotalReports >= 10;
+                    // AbuseIPDB totalReports is useful context, but high-volume public
+                    // infrastructure can accumulate reports while still having 0%
+                    // confidence. Treat the confidence score as the verdict source.
+                    entity.IsMalicious = entity.AbuseConfidenceScore >= 75;
                 }
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
@@ -376,6 +379,26 @@ public sealed class ReportService(AppDbContext dbContext) : IReportService
         var failedLogins = await dbContext.SecurityLogs.SumAsync(x => x.FailedLoginAttempts, cancellationToken);
         var sentAlerts = await dbContext.EmailAlerts.CountAsync(x => x.Status == EmailAlertStatus.Sent, cancellationToken);
         var failedAlerts = await dbContext.EmailAlerts.CountAsync(x => x.Status == EmailAlertStatus.Failed, cancellationToken);
+        var severityBreakdown = await dbContext.Threats
+            .AsNoTracking()
+            .GroupBy(x => x.Severity)
+            .Select(x => new { Severity = x.Key, Count = x.Count() })
+            .OrderByDescending(x => x.Count)
+            .ToListAsync(cancellationToken);
+        var incidentBreakdown = await dbContext.Incidents
+            .AsNoTracking()
+            .GroupBy(x => x.Status)
+            .Select(x => new { Status = x.Key, Count = x.Count() })
+            .OrderByDescending(x => x.Count)
+            .ToListAsync(cancellationToken);
+        var mitreBreakdown = await dbContext.Threats
+            .AsNoTracking()
+            .Where(x => x.MitreTechniqueId != string.Empty)
+            .GroupBy(x => new { x.MitreTechniqueId, x.MitreTechniqueName })
+            .Select(x => new { x.Key.MitreTechniqueId, x.Key.MitreTechniqueName, Count = x.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(8)
+            .ToListAsync(cancellationToken);
         var topIps = await dbContext.Threats
             .AsNoTracking()
             .Where(x => !string.IsNullOrWhiteSpace(x.SourceIP))
@@ -391,6 +414,12 @@ public sealed class ReportService(AppDbContext dbContext) : IReportService
             .Take(5)
             .Select(x => new { x.ThreatType, x.Severity, x.SourceIP, x.RiskScore, x.CreatedAt })
             .ToListAsync(cancellationToken);
+        var recentIncidents = await dbContext.Incidents
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(5)
+            .Select(x => new { x.Title, x.Priority, x.Status, x.CreatedAt, x.ResolutionNotes })
+            .ToListAsync(cancellationToken);
 
         var lines = new List<string>
         {
@@ -403,14 +432,38 @@ public sealed class ReportService(AppDbContext dbContext) : IReportService
                 : "No high or critical threats are currently recorded.",
             $"Open incidents: {openIncidents}. Resolved incidents: {resolvedIncidents}. SMTP alerts sent: {sentAlerts}, failed: {failedAlerts}.",
             "",
-            "Dashboard Metrics",
-            $"Total logs analyzed: {logs}",
-            $"Threats detected: {threats}",
-            $"High-risk threats: {highRiskThreats}",
-            $"Failed login attempts from uploaded logs: {failedLogins}",
+            "KPI Snapshot",
+            $"Logs analyzed                 {logs}",
+            $"Threats detected              {threats}",
+            $"High/Critical threats         {highRiskThreats}",
+            $"Open incidents                {openIncidents}",
+            $"Resolved incidents            {resolvedIncidents}",
+            $"Failed login attempts         {failedLogins}",
+            $"SMTP alerts sent / failed     {sentAlerts} / {failedAlerts}",
+            "",
+            "Threat Severity Breakdown"
+        };
+
+        lines.AddRange(severityBreakdown.Count == 0
+            ? ["No severity data recorded yet."]
+            : severityBreakdown.Select(x => $"{x.Severity,-10} {x.Count}"));
+
+        lines.Add("");
+        lines.Add("Incident Status Breakdown");
+        lines.AddRange(incidentBreakdown.Count == 0
+            ? ["No incident data recorded yet."]
+            : incidentBreakdown.Select(x => $"{x.Status,-14} {x.Count}"));
+
+        lines.Add("");
+        lines.Add("MITRE ATT&CK Coverage");
+        lines.AddRange(mitreBreakdown.Count == 0
+            ? ["No MITRE mappings recorded yet."]
+            : mitreBreakdown.Select(x => $"{x.MitreTechniqueId} - {x.MitreTechniqueName} ({x.Count})"));
+
+        lines.AddRange([
             "",
             "Top Risk Source IPs"
-        };
+        ]);
 
         lines.AddRange(topIps.Count == 0
             ? ["No source IPs recorded yet."]
@@ -421,6 +474,12 @@ public sealed class ReportService(AppDbContext dbContext) : IReportService
         lines.AddRange(recentThreats.Count == 0
             ? ["No threats recorded yet."]
             : recentThreats.Select(x => $"{x.CreatedAt:u} - {x.ThreatType} - {x.Severity} - {x.SourceIP} - risk {x.RiskScore}"));
+
+        lines.Add("");
+        lines.Add("Recent Incidents");
+        lines.AddRange(recentIncidents.Count == 0
+            ? ["No incidents recorded yet."]
+            : recentIncidents.Select(x => $"{x.CreatedAt:u} - {x.Title} - {x.Priority}/{x.Status}" + (string.IsNullOrWhiteSpace(x.ResolutionNotes) ? "" : $" - Resolution: {x.ResolutionNotes}")));
 
         lines.Add("");
         lines.Add("Recommended Actions");

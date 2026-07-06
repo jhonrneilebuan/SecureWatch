@@ -104,7 +104,7 @@ export function IpReputation() {
             <div className="rounded-xl bg-slate-900/40 border border-slate-800/50 p-4 sm:col-span-2 md:col-span-3 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
               <div>
                 <p className="text-xs text-slate-500 font-semibold">Threat Reports Logged</p>
-                <p className="mt-1 text-slate-300 text-xs">Total reports submitted by global security sensors in the last 90 days.</p>
+                <p className="mt-1 text-slate-300 text-xs">Total reports submitted by global security sensors in the last 90 days. Reports are context; the confidence score determines the verdict.</p>
               </div>
               <span className="text-2xl font-black text-slate-100 shrink-0">{result.totalReports}</span>
             </div>

@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { ShieldAlert, ArrowRight, Activity } from 'lucide-react';
 import { api } from '../api/client';
 import { Card } from '../components/ui/card';
-import { Threat } from '../types';
+import { PagedResult, Threat } from '../types';
 
 export function ThreatAnalysis() {
   const [threats, setThreats] = useState<Threat[]>([]);
 
   useEffect(() => {
-    api.get<Threat[]>('/threats').then(({ data }) => setThreats(data)).catch(() => setThreats([]));
+    api.get<PagedResult<Threat>>('/threats', { params: { pageSize: 50 } }).then(({ data }) => setThreats(data.items)).catch(() => setThreats([]));
   }, []);
 
   return (
@@ -28,9 +28,10 @@ export function ThreatAnalysis() {
       )}
 
       {threats.map((threat) => {
-        const isCritical = threat.riskScore >= 80 || threat.severity === 'CRITICAL';
-        const isHigh = threat.severity === 'HIGH';
-        const isMedium = threat.severity === 'MEDIUM';
+        const severity = threat.severity.toLowerCase();
+        const isCritical = threat.riskScore >= 80 || severity === 'critical';
+        const isHigh = severity === 'high';
+        const isMedium = severity === 'medium';
 
         return (
           <Card
@@ -70,6 +71,14 @@ export function ThreatAnalysis() {
                     <div className="mt-3 rounded-lg bg-slate-900/40 border border-slate-800/40 p-3 text-xs text-primary leading-relaxed">
                       <span className="font-bold uppercase text-[9px] tracking-wider block mb-1">Recommendation</span>
                       {threat.recommendation}
+                    </div>
+                  )}
+
+                  {threat.mitreTechniqueId && (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded border border-slate-800 bg-slate-950/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-300">
+                      MITRE ATT&CK
+                      <span className="text-primary">{threat.mitreTechniqueId}</span>
+                      <span className="normal-case tracking-normal text-slate-500">{threat.mitreTechniqueName}</span>
                     </div>
                   )}
 
