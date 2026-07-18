@@ -22,7 +22,7 @@ export interface DashboardSummary {
   attackTimeline: { date: string; threats: number }[];
   failedLoginTimeline: { date: string; failedAttempts: number }[];
   topAttackingIps: { ipAddress: string; count: number }[];
-  topCountries: { name: string; count: number }[];
+  topCountries: { name: string; count: number; latitude?: number | null; longitude?: number | null }[];
   topIsps: { name: string; count: number }[];
   incidentStatus: { status: string; count: number }[];
 }
@@ -110,6 +110,19 @@ export interface IpReputation {
   totalReports: number;
   isMalicious: boolean;
   checkedAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface LiveAttackFeedItem {
+  timestamp: string;
+  attackType: string;
+  severity: string;
+  sourceIp: string;
+  sourceCountry: string;
+  targetCountry: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface CveRecord {

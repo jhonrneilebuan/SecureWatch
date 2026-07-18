@@ -1,0 +1,7 @@
+Jul 18 09:01:12 securewatch sshd[1101]: Failed password for admin from 8.8.8.8 port 51210 ssh2
+Jul 18 09:01:21 securewatch sshd[1102]: Failed password for admin from 8.8.8.8 port 51211 ssh2
+Jul 18 09:01:35 securewatch sshd[1103]: Failed password for root from 8.8.8.8 port 51212 ssh2
+Jul 18 09:01:49 securewatch sshd[1104]: Failed password for analyst from 8.8.8.8 port 51213 ssh2
+Jul 18 09:02:03 securewatch sshd[1105]: Failed password for admin from 8.8.8.8 port 51214 ssh2
+Jul 18 09:02:18 securewatch web[2201]: 8.8.8.8 GET /login 401
+Jul 18 09:02:31 securewatch web[2202]: 8.8.8.8 GET /admin 403 forbidden

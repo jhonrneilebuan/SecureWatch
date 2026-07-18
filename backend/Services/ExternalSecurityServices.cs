@@ -75,9 +75,55 @@ public sealed class IpReputationService(AppDbContext dbContext, IHttpClientFacto
             }
         }
 
+        await EnrichGeolocationAsync(entity, cancellationToken);
         await dbContext.IpReputations.AddAsync(entity, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new IpReputationDto(entity.Id, entity.IpAddress, entity.AbuseConfidenceScore, entity.CountryCode, entity.Isp, entity.TotalReports, entity.IsMalicious, entity.CheckedAt);
+        return new IpReputationDto(entity.Id, entity.IpAddress, entity.AbuseConfidenceScore, entity.CountryCode, entity.Isp, entity.TotalReports, entity.IsMalicious, entity.CheckedAt, entity.Latitude, entity.Longitude);
+    }
+
+    private async Task EnrichGeolocationAsync(IpReputation entity, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            using var response = await client.GetAsync($"http://ip-api.com/json/{Uri.EscapeDataString(entity.IpAddress)}?fields=status,countryCode,isp,lat,lon", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("status", out var status) || status.GetString() != "success")
+            {
+                return;
+            }
+
+            if (root.TryGetProperty("lat", out var lat) && lat.TryGetDouble(out var latitude))
+            {
+                entity.Latitude = latitude;
+            }
+
+            if (root.TryGetProperty("lon", out var lon) && lon.TryGetDouble(out var longitude))
+            {
+                entity.Longitude = longitude;
+            }
+
+            if (string.IsNullOrWhiteSpace(entity.CountryCode) && root.TryGetProperty("countryCode", out var country))
+            {
+                entity.CountryCode = country.GetString() ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(entity.Isp) && root.TryGetProperty("isp", out var isp))
+            {
+                entity.Isp = isp.GetString() ?? string.Empty;
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            // Geolocation is enrichment only. Reputation analysis should still save
+            // even when the public geolocation provider is unavailable or rate-limited.
+        }
     }
 }
 

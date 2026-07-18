@@ -8,7 +8,9 @@ public sealed record IpReputationDto(
     string Isp,
     int TotalReports,
     bool IsMalicious,
-    DateTimeOffset CheckedAt);
+    DateTimeOffset CheckedAt,
+    double? Latitude = null,
+    double? Longitude = null);
 
 public sealed record CveRecordDto(
     Guid Id,

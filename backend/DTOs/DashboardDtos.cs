@@ -21,5 +21,14 @@ public sealed record SeverityCountDto(string Severity, int Count);
 public sealed record TimelinePointDto(string Date, int Threats);
 public sealed record FailedLoginTimelineDto(string Date, int FailedAttempts);
 public sealed record IpCountDto(string IpAddress, int Count);
-public sealed record ReputationSourceDto(string Name, int Count);
+public sealed record ReputationSourceDto(string Name, int Count, double? Latitude = null, double? Longitude = null);
 public sealed record StatusCountDto(string Status, int Count);
+public sealed record LiveAttackFeedDto(
+    DateTimeOffset Timestamp,
+    string AttackType,
+    string Severity,
+    string SourceIp,
+    string SourceCountry,
+    string TargetCountry,
+    double? Latitude,
+    double? Longitude);

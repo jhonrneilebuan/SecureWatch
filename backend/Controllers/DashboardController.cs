@@ -74,13 +74,17 @@ public sealed class DashboardController(AppDbContext dbContext) : ControllerBase
 
         var reputationMetrics = await dbContext.IpReputations
             .AsNoTracking()
-            .Select(x => new { x.CountryCode, x.Isp })
+            .Select(x => new { x.CountryCode, x.Isp, x.Latitude, x.Longitude })
             .ToListAsync(cancellationToken);
 
         var topCountries = reputationMetrics
             .Where(x => !string.IsNullOrWhiteSpace(x.CountryCode))
             .GroupBy(x => x.CountryCode)
-            .Select(x => new ReputationSourceDto(x.Key, x.Count()))
+            .Select(x => new ReputationSourceDto(
+                x.Key,
+                x.Count(),
+                x.Average(item => item.Latitude),
+                x.Average(item => item.Longitude)))
             .OrderByDescending(x => x.Count)
             .Take(5)
             .ToList();
@@ -103,5 +107,54 @@ public sealed class DashboardController(AppDbContext dbContext) : ControllerBase
             .ToList();
 
         return Ok(new DashboardSummaryDto(totalLogs, threatsDetected, highRiskAlerts, criticalAlerts, activeIncidents, resolvedIncidents, maliciousIps, failedLoginAttempts, severity, timeline, failedLoginTimeline, topIps, topCountries, topIsps, incidentStatus));
+    }
+
+    [HttpGet("live-feed")]
+    public async Task<ActionResult<IReadOnlyCollection<LiveAttackFeedDto>>> GetLiveFeed(CancellationToken cancellationToken)
+    {
+        var threats = await dbContext.Threats
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(30)
+            .Select(x => new
+            {
+                x.CreatedAt,
+                x.ThreatType,
+                x.Severity,
+                x.SourceIP
+            })
+            .ToListAsync(cancellationToken);
+
+        var sourceIps = threats
+            .Select(x => x.SourceIP)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var reputationRows = await dbContext.IpReputations
+            .AsNoTracking()
+            .Where(x => sourceIps.Contains(x.IpAddress))
+            .OrderByDescending(x => x.CheckedAt)
+            .ToListAsync(cancellationToken);
+
+        var reputations = reputationRows
+            .GroupBy(x => x.IpAddress, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+        var feed = threats.Select(threat =>
+        {
+            reputations.TryGetValue(threat.SourceIP, out var reputation);
+            return new LiveAttackFeedDto(
+                threat.CreatedAt,
+                threat.ThreatType,
+                threat.Severity.ToString(),
+                threat.SourceIP,
+                string.IsNullOrWhiteSpace(reputation?.CountryCode) ? "Unknown" : reputation.CountryCode,
+                "SecureWatch SOC",
+                reputation?.Latitude,
+                reputation?.Longitude);
+        }).ToList();
+
+        return Ok(feed);
     }
 }

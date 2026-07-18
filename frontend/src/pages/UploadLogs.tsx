@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { AlertCircle, CheckCircle2, UploadCloud } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, UploadCloud } from 'lucide-react';
 import { api } from '../api/client';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -47,13 +47,20 @@ export function UploadLogs() {
         </div>
       </div>
       <form className="space-y-5" onSubmit={onSubmit}>
-        <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800/90 hover:border-primary/40 bg-slate-950/20 rounded-xl p-10 cursor-pointer transition-all duration-300 group">
-          <UploadCloud className="text-slate-500 group-hover:text-primary transition-all duration-300" size={40} />
-          <span className="mt-3 text-sm text-slate-300 font-semibold group-hover:text-slate-100 transition">
-            {selectedFileName ? 'Change selected log' : 'Select log file (.log, .txt)'}
-          </span>
-          <span className="mt-1 text-xs text-slate-500">
-            {selectedFileName ? `Selected: ${selectedFileName}` : 'Drag & drop or browse from local filesystem'}
+        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-dashed border-slate-800/90 bg-slate-950/25 px-4 py-3 transition-all duration-300 hover:border-primary/50 hover:bg-primary/5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <UploadCloud size={18} />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-200">
+                {selectedFileName || 'No log file selected'}
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">Accepted: .log, .txt</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-primary/15">
+            Choose File
           </span>
           <input
             name="file"
@@ -69,8 +76,15 @@ export function UploadLogs() {
             }}
           />
         </label>
-        <Button disabled={loading} className="px-6 py-2">
-          {loading ? 'Analyzing Telemetry...' : 'Analyze Log'}
+        <Button disabled={loading} className="min-w-36 px-6 py-2">
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="animate-spin" size={16} />
+              Analyzing...
+            </span>
+          ) : (
+            'Analyze Log'
+          )}
         </Button>
       </form>
       {result && (
