@@ -20,7 +20,7 @@ const navItems = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
-const headerIconButtonClass = 'h-12 w-12 rounded-lg border border-slate-600 bg-slate-900/95 p-2 !text-white shadow-md shadow-slate-950/40 hover:border-primary hover:bg-primary/15 hover:!text-primary focus-visible:ring-primary/60';
+const headerIconButtonClass = 'h-10 w-10 sm:h-12 sm:w-12 rounded-lg border border-slate-600 bg-slate-900/95 p-2 !text-white shadow-md shadow-slate-950/40 hover:border-primary hover:bg-primary/15 hover:!text-primary focus-visible:ring-primary/60';
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -61,7 +61,7 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-[#061018] text-slate-100">
       {/* Desktop Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-slate-800 bg-slate-950/95 p-5 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 overflow-y-auto border-r border-slate-800 bg-slate-950/95 p-5 lg:block">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-r from-primary to-emerald-500 text-slate-950 shadow-md shadow-primary/10">
             <Activity size={24} />
@@ -102,7 +102,7 @@ export function AppLayout() {
 
       {/* Mobile Slide-over Drawer Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-slate-800/80 bg-slate-950/95 p-5 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-40 w-[min(18rem,86vw)] overflow-y-auto border-r border-slate-800/80 bg-slate-950/95 p-4 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -147,9 +147,9 @@ export function AppLayout() {
       </aside>
 
       {/* Main Panel Area */}
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-10 flex min-h-20 items-center justify-between border-b border-slate-800/80 bg-[#061018]/92 px-5 py-3 backdrop-blur-md">
-          <div className="flex items-center gap-3">
+      <div className="min-w-0 lg:pl-72">
+        <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-3 border-b border-slate-800/80 bg-[#061018]/92 px-3 py-2 backdrop-blur-md sm:min-h-20 sm:px-5 sm:py-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-900 hover:text-slate-100 lg:hidden focus:outline-none active:scale-95"
@@ -157,21 +157,21 @@ export function AppLayout() {
             >
               <Menu size={20} />
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="hidden h-11 w-11 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary shadow-lg shadow-primary/5 sm:flex">
                 <Radio size={20} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="hidden items-center gap-2 sm:flex">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">AI-Powered Security Monitoring Dashboard</p>
                 </div>
-                <h1 className="text-base font-black tracking-tight text-slate-100 sm:text-xl">SOC Command Center</h1>
+                <h1 className="truncate text-base font-black tracking-tight text-slate-100 sm:text-xl">SOC Command Center</h1>
                 <p className="hidden text-xs font-medium text-slate-500 sm:block">{currentSection} workspace</p>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div className="relative">
               <Button
                 variant="ghost"
@@ -188,7 +188,7 @@ export function AppLayout() {
                 )}
               </Button>
               {notificationsOpen && (
-                <div className="absolute right-0 top-11 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-slate-800 bg-slate-950 shadow-2xl shadow-slate-950/60">
+                <div className="fixed left-3 right-3 top-16 z-30 rounded-lg border border-slate-800 bg-slate-950 shadow-2xl shadow-slate-950/60 sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-[min(22rem,calc(100vw-2rem))]">
                   <div className="border-b border-slate-800 px-4 py-3">
                     <p className="text-sm font-bold text-slate-100">Live Alerts</p>
                     <p className="text-xs text-slate-500">Latest in-app security notifications</p>
@@ -238,7 +238,7 @@ export function AppLayout() {
             </Button>
           </div>
         </header>
-        <main className="p-4 sm:p-6 transition-all">
+        <main className="min-w-0 p-3 transition-all sm:p-6">
           <Outlet />
         </main>
       </div>

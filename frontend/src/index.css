@@ -14,10 +14,23 @@ body {
   min-height: 100vh;
   background: #061018;
   color: #e5f2ef;
+  overflow-x: hidden;
 }
 
 * {
   box-sizing: border-box;
+}
+
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
 }
 
 @keyframes dashFlow {

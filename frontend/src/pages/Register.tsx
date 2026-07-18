@@ -60,7 +60,7 @@ export function Register() {
           </div>
 
           <div className="max-w-2xl">
-            <h1 className="text-5xl font-black leading-tight tracking-tight text-slate-100">
+            <h1 className="text-3xl font-black leading-tight tracking-tight text-slate-100 sm:text-5xl">
               Create access for defensive security operations.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-slate-400">
@@ -94,7 +94,7 @@ export function Register() {
           </div>
         </section>
 
-      <Card className="relative w-full overflow-hidden border-slate-800/80 bg-slate-950/75 p-8 shadow-2xl shadow-black/60 backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-8">
+      <Card className="relative w-full overflow-hidden border-slate-800/80 bg-slate-950/75 p-5 shadow-2xl shadow-black/60 backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-8 sm:p-8">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-emerald-500 to-teal-400" />
         <div className="pointer-events-none absolute inset-x-0 top-1 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
 

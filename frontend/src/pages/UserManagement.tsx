@@ -116,7 +116,7 @@ export function UserManagement() {
           </div>
         </div>
 
-        <div className="grid gap-5 p-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+        <div className="grid gap-5 p-4 sm:p-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
           <form className="rounded-xl border border-slate-800 bg-slate-950/35 p-4" onSubmit={createUser}>
             <div className="mb-4 flex items-center gap-3">
               <div className="rounded-md bg-primary/10 p-2 text-primary">
@@ -193,7 +193,7 @@ export function UserManagement() {
             </div>
 
         <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/20">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[48rem] text-left text-sm">
             <thead className="text-slate-500 uppercase text-[10px] tracking-wider bg-slate-950/40 border-b border-slate-800/80">
               <tr>
                 <th className="py-3.5 px-4">Name</th>

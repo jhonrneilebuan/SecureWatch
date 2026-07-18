@@ -67,7 +67,7 @@ export function EmailAlerts() {
         </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/20 shadow-inner shadow-slate-950/40">
-        <table className="w-full text-left text-sm">
+        <table className="w-full min-w-[46rem] text-left text-sm">
           <thead className="text-slate-500 uppercase text-[10px] tracking-wider bg-slate-950/40 border-b border-slate-800/80">
             <tr>
               <th className="py-3.5 px-4">Subject</th>

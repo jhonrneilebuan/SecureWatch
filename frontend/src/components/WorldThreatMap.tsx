@@ -181,20 +181,20 @@ export function WorldThreatMap({ topCountries }: WorldThreatMapProps) {
   return (
     <section>
       <div className="overflow-hidden rounded-xl border border-slate-800 bg-black shadow-2xl shadow-black/30">
-        <div className="flex h-14 items-end justify-between border-b border-emerald-400/25 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-5 pb-3">
-          <div className="flex items-end gap-3">
-            <p className="text-2xl font-black leading-none tracking-tight text-white">SecureWatch</p>
-            <div className="pb-0.5 text-[11px] font-black uppercase leading-[0.72rem] tracking-wide text-emerald-950/80">
+        <div className="flex min-h-14 flex-col gap-2 border-b border-emerald-400/25 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-3 py-3 sm:flex-row sm:items-end sm:justify-between sm:px-5">
+          <div className="flex min-w-0 items-end gap-2 sm:gap-3">
+            <p className="truncate text-xl font-black leading-none tracking-tight text-white sm:text-2xl">SecureWatch</p>
+            <div className="shrink-0 pb-0.5 text-[10px] font-black uppercase leading-[0.68rem] tracking-wide text-emerald-950/80 sm:text-[11px] sm:leading-[0.72rem]">
               <p>Cyberthreat</p>
               <p>Real-Time Map</p>
             </div>
           </div>
-          <span className="rounded border border-emerald-950/15 bg-emerald-950/15 px-2.5 py-1 text-[10px] font-black uppercase text-white">
+          <span className="w-fit rounded border border-emerald-950/15 bg-emerald-950/15 px-2.5 py-1 text-[10px] font-black uppercase text-white">
             {totalEvents} events
           </span>
         </div>
 
-        <div className="relative h-[30rem] overflow-hidden bg-black">
+        <div className="relative h-[18rem] overflow-hidden bg-black sm:h-[24rem] xl:h-[30rem]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(8,119,242,.18),transparent_42%),linear-gradient(rgba(15,23,42,.3),rgba(0,0,0,.98))]" />
           <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" aria-label="World cyberthreat activity map">
             <defs>
@@ -261,8 +261,8 @@ export function WorldThreatMap({ topCountries }: WorldThreatMapProps) {
           </svg>
         </div>
 
-        <div className="grid border-t border-slate-800 bg-black md:grid-cols-[16rem_minmax(0,1fr)_16rem]">
-          <div className="border-b border-slate-800 p-4 md:border-b-0 md:border-r">
+        <div className="grid border-t border-slate-800 bg-black lg:grid-cols-[15rem_minmax(0,1fr)_15rem] xl:grid-cols-[16rem_minmax(0,1fr)_16rem]">
+          <div className="border-b border-slate-800 p-3 sm:p-4 lg:border-b-0 lg:border-r">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-xs font-black uppercase tracking-wider text-slate-400">Legend</p>
               <span className="text-slate-600">v</span>
@@ -274,13 +274,13 @@ export function WorldThreatMap({ topCountries }: WorldThreatMapProps) {
             </div>
           </div>
 
-          <div className="border-b border-slate-800 p-4 md:border-b-0 md:border-r">
+          <div className="min-w-0 border-b border-slate-800 p-3 sm:p-4 lg:border-b-0 lg:border-r">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-black uppercase tracking-wider text-slate-400">Live Attacks</p>
               <span className="text-slate-600">v</span>
             </div>
-            <div className="max-h-44 overflow-auto">
-              <table className="w-full min-w-[38rem] text-left text-[11px]">
+            <div className="max-h-56 overflow-auto rounded-lg border border-slate-900/80 lg:max-h-44">
+              <table className="w-full min-w-[34rem] text-left text-[11px]">
                 <thead className="sticky top-0 bg-black text-[10px] uppercase tracking-wider text-cyan-500">
                   <tr>
                     <th className="py-1.5">Time</th>
@@ -314,7 +314,7 @@ export function WorldThreatMap({ topCountries }: WorldThreatMapProps) {
             </div>
           </div>
 
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-black uppercase tracking-wider text-slate-400">Locations</p>
               <span className="text-slate-600">v</span>
