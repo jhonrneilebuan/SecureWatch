@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Globe, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Globe, Loader2, Radar, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { api } from '../api/client';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -29,23 +29,74 @@ export function IpReputation() {
   }
 
   return (
-    <Card className="max-w-3xl">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="rounded-lg bg-primary/10 p-2 text-primary">
-          <Globe size={22} />
+    <div className="space-y-5">
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-slate-800 bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/35 p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg border border-primary/25 bg-primary/10 p-3 text-primary shadow-lg shadow-primary/5">
+                <Globe size={24} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">Threat Intelligence</p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-100">IP Reputation Query</h2>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">
+                  Query external intelligence data to check abuse confidence, network ownership, and geolocation.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-lg border border-primary/25 bg-primary/10 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-primary">Provider</p>
+              <p className="mt-1 text-sm font-black text-slate-100">AbuseIPDB + Geo Enrichment</p>
+            </div>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-bold">IP Reputation Query</h2>
-          <p className="text-xs text-slate-500">Query external threat intelligence data (AbuseIPDB) to check if an IP is associated with attacks.</p>
+
+        <div className="p-6">
+          <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem]" onSubmit={onSubmit}>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={17} />
+              <Input name="ip" placeholder="e.g. 8.8.8.8, 1.1.1.1, 192.168.1.10" required className="h-12 pl-10 text-sm" />
+            </div>
+            <Button disabled={loading} className="h-12">
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="animate-spin" size={16} />
+                  Checking
+                </span>
+              ) : (
+                'Check Reputation'
+              )}
+            </Button>
+          </form>
+
+          {error && (
+            <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-300">
+              <AlertTriangle className="mt-0.5 shrink-0" size={17} />
+              <p className="font-medium">{error}</p>
+            </div>
+          )}
+
+          {!result && !loading && !error && (
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {[
+                ['Confidence Score', 'Abuse verdict based on recent reports.'],
+                ['Network Owner', 'ISP and infrastructure context.'],
+                ['Geo Signal', 'Country and coordinates for dashboard map.'],
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-lg border border-slate-800 bg-slate-950/35 p-4">
+                  <Radar className="mb-3 text-primary" size={18} />
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-300">{title}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{description}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-      <form className="mt-4 flex flex-col sm:flex-row gap-3" onSubmit={onSubmit}>
-        <Input name="ip" placeholder="e.g. 192.168.1.10, 8.8.8.8" required className="flex-1" />
-        <Button disabled={loading}>{loading ? 'Querying...' : 'Check Reputation'}</Button>
-      </form>
-      {error && <p className="mt-4 text-sm font-medium text-red-400">{error}</p>}
+      </Card>
+
       {result && (
-        <div className="mt-8 border-t border-slate-800/80 pt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Target Address</p>
@@ -98,7 +149,11 @@ export function IpReputation() {
             <div className="rounded-xl bg-slate-900/40 border border-slate-800/50 p-4">
               <p className="text-xs text-slate-500 font-semibold">Geo Details</p>
               <p className="mt-2 text-md font-bold text-slate-200">{result.countryCode || 'Local/Internal'}</p>
-              <p className="text-[10px] text-slate-500 font-semibold mt-1">ISO Country Code</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-1">
+                {result.latitude != null && result.longitude != null
+                  ? `${result.latitude.toFixed(3)}, ${result.longitude.toFixed(3)}`
+                  : 'ISO Country Code'}
+              </p>
             </div>
 
             <div className="rounded-xl bg-slate-900/40 border border-slate-800/50 p-4 sm:col-span-2 md:col-span-3 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
@@ -109,8 +164,8 @@ export function IpReputation() {
               <span className="text-2xl font-black text-slate-100 shrink-0">{result.totalReports}</span>
             </div>
           </div>
-        </div>
+        </Card>
       )}
-    </Card>
+    </div>
   );
 }

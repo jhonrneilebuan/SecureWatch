@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Activity, Bell, Bug, FileBarChart, FileText, Globe, LayoutDashboard, LogOut, Mail, Menu, Settings, ShieldAlert, Upload, Users, X } from 'lucide-react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Activity, Bell, Bug, FileBarChart, FileText, Globe, LayoutDashboard, LogOut, Mail, Menu, Radio, Settings, ShieldAlert, Upload, Users, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/button';
 import { api } from '../../api/client';
@@ -25,11 +25,13 @@ const headerIconButtonClass = 'h-12 w-12 rounded-lg border border-slate-600 bg-s
 export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const visibleItems = navItems.filter((item) => !item.admin || user?.role === 'Admin');
   const unreadCount = notifications.filter((item) => !item.isRead).length;
+  const currentSection = visibleItems.find((item) => item.to === location.pathname)?.label ?? 'Dashboard';
 
   useEffect(() => {
     let active = true;
@@ -146,7 +148,7 @@ export function AppLayout() {
 
       {/* Main Panel Area */}
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-800/80 bg-[#061018]/90 px-5 backdrop-blur-md">
+        <header className="sticky top-0 z-10 flex min-h-20 items-center justify-between border-b border-slate-800/80 bg-[#061018]/92 px-5 py-3 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -155,9 +157,18 @@ export function AppLayout() {
             >
               <Menu size={20} />
             </button>
-            <div>
-              <p className="text-xs text-slate-500 hidden sm:block">AI-Powered Security Monitoring Dashboard</p>
-              <h1 className="text-sm sm:text-lg font-bold">SOC Command Center</h1>
+            <div className="flex items-center gap-3">
+              <div className="hidden h-11 w-11 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary shadow-lg shadow-primary/5 sm:flex">
+                <Radio size={20} />
+              </div>
+              <div>
+                <div className="hidden items-center gap-2 sm:flex">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-primary">AI-Powered Security Monitoring Dashboard</p>
+                </div>
+                <h1 className="text-base font-black tracking-tight text-slate-100 sm:text-xl">SOC Command Center</h1>
+                <p className="hidden text-xs font-medium text-slate-500 sm:block">{currentSection} workspace</p>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
