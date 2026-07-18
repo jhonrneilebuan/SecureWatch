@@ -1,84 +1,181 @@
 # SecureWatch
 
-SecureWatch is an AI-powered security monitoring dashboard for IT administrators and security analysts. It analyzes uploaded authentication logs, detects suspicious behavior, calculates risk scores, creates incidents, supports IP/CVE lookups, exports PDF reports, and presents a dark SOC-style dashboard.
+**AI-Powered Security Monitoring Dashboard**
 
-## Features
+SecureWatch is a full-stack cybersecurity monitoring platform built for IT administrators and security analysts. It analyzes uploaded system logs, detects suspicious login activity, identifies brute-force attack patterns, enriches threats with security intelligence, manages incidents, and presents results in a responsive SOC-style dashboard.
 
-- JWT login, registration, refresh tokens, logout, and protected routes
+## Live Demo
+
+- Frontend: [https://securewatch-4l1r.onrender.com](https://securewatch-4l1r.onrender.com)
+- Backend API: [https://securewatch-backend-2124.onrender.com](https://securewatch-backend-2124.onrender.com)
+- Security Engine: [https://securewatch-security-engine.onrender.com/docs](https://securewatch-security-engine.onrender.com/docs)
+
+Demo accounts:
+
+```text
+Admin: admin@securewatch.com
+Analyst: analyst@securewatch.com
+Password: SecureWatch@123
+```
+
+## Project Overview
+
+SecureWatch simulates a defensive SOC workflow:
+
+1. Analysts upload authentication/system logs.
+2. The ASP.NET Core API forwards logs to a FastAPI security engine.
+3. The security engine detects failed login bursts, repeated source IPs, brute-force patterns, and suspicious activity.
+4. Threats and incidents are stored in PostgreSQL.
+5. The dashboard updates with charts, threat analysis, IP reputation, CVE lookup, audit logs, reports, and alert history.
+
+## Core Features
+
+- JWT authentication with refresh tokens
 - Admin and Analyst role-based authorization
-- Admin user management with create, role edit, active/disabled status, and delete confirmation
-- Admin account unlock for lockout recovery
-- Actual SecureWatch login failed-attempt detection with threat creation, incident creation, SMTP alerting, and account lockout
+- Admin user management and account unlock
+- Failed-login lockout and brute-force threat creation
 - Log upload for `.log`, `.txt`, and `.csv` files
-- Python FastAPI detection for brute force, failed logins, repeated IPs, SQL injection, suspicious admin access, privilege escalation, impossible travel, and suspicious IP activity
-- MITRE ATT&CK mapping on detected threats
+- FastAPI-based threat detection engine
 - Risk scoring: Low, Medium, High, Critical
+- MITRE ATT&CK mapping for detected threats
 - Automatic incident creation for High/Critical threats
-- Incident assignment, status updates, notes, evidence references, timeline, and resolution notes
-- Live in-app notifications for newly detected threats
-- AbuseIPDB-ready IP reputation lookup through backend-only API keys, with optional VirusTotal/Shodan/AlienVault OTX readiness checks
-- NVD CVE lookup by keyword/software name
-- OpenAI-ready AI recommendation service with local fallback guidance
-- SMTP alert service and frontend email alert history for High/Critical threats
-- Dashboard analytics using Recharts
-- Richer PDF security summary export with incidents, high-risk IPs, alert delivery counts, and recommendations
-- Audit logs for important actions
+- Incident assignment, notes, evidence references, timeline, and resolution notes
+- Live in-app notifications
+- IP reputation lookup with AbuseIPDB support
+- Threat intelligence readiness for VirusTotal, Shodan, and AlienVault OTX
+- NVD CVE lookup by product/software keyword
+- AI-assisted recommendation service with fallback guidance
+- Email alert history and delivery status tracking
+- SOC dashboard analytics using Recharts
+- Cyberthreat real-time map visualization
+- PDF security summary export
+- Audit logging for important actions
+- Responsive dark SOC dashboard UI
 
 ## Tech Stack
 
-- Frontend: React, TypeScript, Tailwind CSS, React Router, Axios, Recharts, Lucide Icons
-- Backend: ASP.NET Core Web API (.NET 8), EF Core, PostgreSQL, JWT
-- Security Engine: Python, FastAPI
-- DevOps: Docker, Docker Compose
+Frontend:
 
-## Local Development
+- React
+- TypeScript
+- Tailwind CSS
+- React Router
+- Axios
+- Recharts
+- Lucide Icons
+- D3 Geo / TopoJSON / World Atlas
 
-PostgreSQL local connection is currently configured as:
+Backend:
+
+- ASP.NET Core Web API (.NET 8)
+- Entity Framework Core
+- PostgreSQL
+- JWT Authentication
+- Role-Based Authorization
+
+Security Engine:
+
+- Python
+- FastAPI
+- Log parsing
+- Threat detection algorithms
+
+DevOps / Cloud:
+
+- Docker
+- Docker Compose
+- Render
+- Neon PostgreSQL
+
+## Project Structure
 
 ```text
-Host=localhost;Port=5432;Database=securewatch;Username=postgres;Password=ebuan
+SecureWatch/
+├── frontend/          React + TypeScript client
+├── backend/           ASP.NET Core Web API
+├── security-engine/   Python FastAPI microservice
+├── database/          PostgreSQL init files
+├── docs/              Deployment notes
+├── samples/           Sample logs for testing
+├── docker-compose.yml
+└── README.md
 ```
 
-Apply migrations:
+## Local Setup
+
+Prerequisites:
+
+- Node.js
+- .NET 8 SDK
+- Python 3.11+
+- PostgreSQL
+- Docker Desktop, optional
+
+Create a local PostgreSQL database:
+
+```text
+Database: securewatch
+```
+
+Create a project root `.env` file. Use `.env.example` as reference and set at least:
+
+```text
+JWT_KEY=replace_with_a_long_random_secret_at_least_32_characters
+JWT_EXPIRES_MINUTES=120
+JWT_REFRESH_TOKEN_DAYS=7
+FRONTEND_ALLOWED_ORIGINS=http://localhost:3000
+USE_HTTPS_REDIRECTION=false
+```
+
+Configure your backend connection string in `backend/appsettings.json` or via environment variable:
+
+```text
+ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;Database=securewatch;Username=postgres;Password=your_password
+```
+
+Apply database migrations:
 
 ```powershell
-cd C:\Users\jhonr\Desktop\SecureWatch\backend
+cd backend
 dotnet ef database update
 ```
 
-Run security engine:
+Run the security engine:
 
 ```powershell
-cd C:\Users\jhonr\Desktop\SecureWatch\security-engine
+cd security-engine
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-Run backend:
+Run the backend:
 
 ```powershell
-cd C:\Users\jhonr\Desktop\SecureWatch\backend
+cd backend
 dotnet run
 ```
 
-Run frontend:
+Run the frontend:
 
 ```powershell
-cd C:\Users\jhonr\Desktop\SecureWatch\frontend
+cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open:
 
-## Docker
+```text
+http://localhost:3000
+```
+
+## Docker Setup
 
 ```powershell
-cd C:\Users\jhonr\Desktop\SecureWatch
 docker compose up --build
 ```
 
-Services:
+Default local service URLs:
 
 - Frontend: `http://localhost:3000`
 - Backend API: `http://localhost:5000`
@@ -87,9 +184,9 @@ Services:
 
 ## Environment Variables
 
-Do not expose these keys in the frontend.
+Do not expose backend secrets in the frontend.
 
-Create or edit `.env` in the project root:
+Local root `.env` example:
 
 ```text
 ABUSEIPDB_API_KEY=
@@ -99,7 +196,7 @@ OTX_API_KEY=
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 NVD_API_KEY=
-JWT_KEY=replace_with_a_long_random_jwt_secret_at_least_32_characters
+JWT_KEY=replace_with_a_long_random_jwt_secret
 JWT_EXPIRES_MINUTES=120
 JWT_REFRESH_TOKEN_DAYS=7
 FRONTEND_ALLOWED_ORIGINS=http://localhost:3000
@@ -108,116 +205,123 @@ SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
 SMTP_PASSWORD=
-SMTP_FROM=alerts@securewatch.local
+SMTP_FROM=
 SMTP_TO=
 ```
 
-The app works without OpenAI, AbuseIPDB, NVD, and SMTP by returning local defensive recommendations and not-configured status metadata. `JWT_KEY` is required before running the backend.
-
-## Test Accounts
-
-Local development password for both:
+Render backend environment variable format:
 
 ```text
-SecureWatch@123
+ConnectionStrings__DefaultConnection=
+SecurityEngine__BaseUrl=https://securewatch-security-engine.onrender.com
+Frontend__AllowedOrigins__0=https://securewatch-4l1r.onrender.com
+Jwt__Key=
+Jwt__Issuer=SecureWatch
+Jwt__Audience=SecureWatchUsers
+Jwt__ExpiresMinutes=120
+Jwt__RefreshTokenDays=7
+AbuseIPDB__ApiKey=
+OpenAI__ApiKey=
+OpenAI__Model=gpt-4o-mini
+Nvd__ApiKey=
+VirusTotal__ApiKey=
+Shodan__ApiKey=
+Otx__ApiKey=
+Smtp__Host=
+Smtp__Port=587
+Smtp__Username=
+Smtp__Password=
+Smtp__From=
+Smtp__To=
 ```
 
-- Admin: `admin@securewatch.com`
-- Analyst: `analyst@securewatch.com`
+Render frontend environment variable:
+
+```text
+VITE_API_URL=https://securewatch-backend-2124.onrender.com/api
+```
 
 ## Testing Flow
 
 1. Login as Admin.
-2. Upload [sample-auth.log](C:/Users/jhonr/Desktop/SecureWatch/sample-auth.log).
-3. Open Dashboard and confirm cards/charts update.
-4. Open Threat Analysis and review risk score/recommendations.
-5. Open Incidents and resolve the auto-created incident.
-   - Add an analyst note.
-   - Add an evidence reference.
-   - Add resolution notes before marking it resolved.
-6. Open IP Reputation and check an IP.
-7. Open CVE Lookup and search a product keyword.
-8. Open Reports and export the PDF summary.
-9. Open Email Alerts and confirm sent/failed/skipped alert history.
-10. Open Audit Logs and confirm activity was tracked.
+2. Upload a sample log from `samples/`.
+3. Open Dashboard and confirm metrics/charts update.
+4. Open Threat Analysis and review severity, risk score, source IP, MITRE mapping, and recommendations.
+5. Open Incident Management and update the auto-created incident.
+6. Open IP Reputation and check a public IP.
+7. Open CVE Lookup and search a keyword such as `openssl`, `nginx`, or `windows`.
+8. Open Reports and export the PDF security summary.
+9. Open Audit Logs and confirm system activity was tracked.
+10. Open Email Alerts and review sent/failed/skipped alert history.
 
-## Failed Login Lockout Test
+## Sample Logs
 
-1. Restart the backend after setting `JWT_KEY` in `.env`.
-2. Open `http://localhost:3000/login`.
-3. Enter `admin@securewatch.com` with the wrong password 5 times within 15 minutes.
-4. The backend records failed login attempts, creates a `SecureWatch Login Brute Force` threat, opens an incident, sends SMTP if configured, and locks the account for 15 minutes.
-5. Login again after the lock expires, or use User Management as another admin and click `Unlock`.
+The `samples/` folder contains example authentication logs for testing different countries and source IPs:
 
-## SMTP Alert Test
+- `sample-auth-us.log`
+- `sample-auth-germany.log`
+- `sample-auth-uk.log`
+- `sample-auth-japan.log`
+- `sample-auth-australia.log`
 
-Set SMTP values in `.env`, restart the backend, then upload `sample-auth.log`. The sample creates a High brute-force threat, which sends an email alert to `SMTP_TO`.
+Uploading these files triggers the detection pipeline and updates dashboard analytics.
 
-For Gmail, use an App Password instead of your normal account password:
+## SMTP Note
 
-```text
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your_email@gmail.com
-SMTP_PASSWORD=your_gmail_app_password
-SMTP_FROM=your_email@gmail.com
-SMTP_TO=recipient_email@gmail.com
-```
+SMTP alert generation and delivery history are implemented. On some cloud hosts, outbound SMTP ports such as `587`, `465`, or `25` may be blocked. In that case, SecureWatch records the delivery attempt as failed and displays the provider/network error in the Email Alerts page.
+
+This keeps alert observability visible even when the hosting provider restricts direct SMTP delivery.
 
 ## Automated Checks
 
+Backend:
+
 ```powershell
-cd C:\Users\jhonr\Desktop\SecureWatch\backend
+cd backend
 dotnet build
-dotnet run --project .\SecureWatch.Api.SmokeTests
+```
 
-cd C:\Users\jhonr\Desktop\SecureWatch\frontend
+Frontend:
+
+```powershell
+cd frontend
 npm run build
-npm run test:smoke
+```
 
-cd C:\Users\jhonr\Desktop\SecureWatch\security-engine
-$env:PYTHONPATH = (Resolve-Path .pytest-packages).Path
+Security engine:
+
+```powershell
+cd security-engine
 python -m pytest tests
 ```
 
-## API Endpoints
+## API Highlights
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-- `GET /api/dashboard/summary`
 - `POST /api/logs/upload`
+- `GET /api/dashboard/summary`
+- `GET /api/dashboard/live-feed`
 - `GET /api/threats`
 - `GET /api/threats/{id}`
 - `GET /api/incidents`
-- `POST /api/incidents`
-- `PUT /api/incidents/{id}`
+- `GET /api/incidents/{id}`
 - `POST /api/incidents/{id}/notes`
 - `POST /api/incidents/{id}/evidence`
-- `POST /api/incidents/{id}/evidence-file`
-- `GET /api/notifications`
-- `PUT /api/notifications/{id}/read`
 - `GET /api/lookups/ip/{ipAddress}`
 - `GET /api/lookups/cve?query=openssl`
 - `GET /api/reports/security-summary.pdf`
 - `GET /api/auditlogs`
 - `GET /api/emailalerts`
-- `GET /api/settings/status`
 - `GET /api/users`
 - `POST /api/users`
-- `PUT /api/users/{id}`
 - `POST /api/users/{id}/unlock`
-- `DELETE /api/users/{id}`
 
-## Deployment
+## Portfolio Description
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, cloud hosting, HTTPS, CORS, and production-secret notes.
+SecureWatch is an AI-powered cybersecurity monitoring dashboard that analyzes uploaded system logs, detects brute-force attack patterns, enriches threats with IP reputation and CVE intelligence, manages incidents, and provides SOC-style reporting through a full-stack cloud-deployed architecture.
 
-## Screenshots
+## Security Notice
 
-Add dashboard, upload, threat analysis, incidents, reports, and user management screenshots here for portfolio presentation.
-
-## Security Note
-
-SecureWatch is for defensive cybersecurity monitoring and portfolio/demo use. Do not upload sensitive production logs without reviewing data handling, retention, key management, SMTP configuration, and third-party API privacy requirements.
+SecureWatch is a defensive cybersecurity portfolio project. Do not upload sensitive production logs without reviewing data retention, privacy, access control, secrets management, and third-party API policies.
